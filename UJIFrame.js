@@ -193,6 +193,7 @@
         sudoconfigColorError: 'color must be a 6-digit hex value (e.g. sudoconfig color ff8800).',
         sudoconfigLangError: 'lang must be "en" or "ja" (e.g. sudoconfig lang ja).',
         sudoconfigSet: (key, value) => `✓ ${key} set to "${value}" (exact value via sudoconfig).`,
+        sudoconfigValueList: (key, list) => `Supported values for "${key}": ${list}`,
         unknownCommand: (cmd) => `Unknown command: "${cmd}". Type "help" for a list.`,
         cancelled: 'Cancelled.',
         confirmTimedOut: 'Confirmation timed out — cancelled.',
@@ -272,6 +273,20 @@
         helpExport: 'Download the current console output as a .txt file',
         exportDone: 'Log downloaded.',
         settingsTease: "awwww that's cute",
+        calcHelpTitle: 'CALC — quick reference',
+        calcHelpArithmetic: 'Arithmetic:  +  -  *  /  %  ^ (power)  ! (factorial)',
+        calcHelpArithmeticEx: 'e.g. calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
+        calcHelpFunctions: 'Functions:  sqrt sin cos tan asin acos atan log(base10) ln(natural) abs floor ceil round exp max min pow',
+        calcHelpFunctionsEx: 'e.g. calc sqrt(16) → 4     calc max(3,9,5) → 9     calc pow(2,10) → 1024',
+        calcHelpConstants: 'Constants:  pi   e   ans (remembers your last result)',
+        calcHelpConstantsEx: 'e.g. calc pi * 2     calc ans + 1',
+        calcHelpAlgebra: 'Algebra:  calc solve <equation> — solves a linear or quadratic equation in one variable',
+        calcHelpAlgebraEx: 'e.g. calc solve 2x+5=3x-1 → x = 6     calc solve x^2-5x+6=0 → x = 3 or 2',
+        calcHelpSystem: 'Systems:  calc solve <eqn1>, <eqn2> — solves a 2-variable linear system',
+        calcHelpSystemEx: 'e.g. calc solve x+y=10, x-y=2 → x = 6, y = 4',
+        calcHelpUnits: 'Unit conversion:  calc <n> <unit> to <unit> — length (m km cm mm mi yd ft in), mass (kg g mg lb oz), time (s min h day), temperature (c f k)',
+        calcHelpUnitsEx: 'e.g. calc 5 km to mi     calc 100 c to f',
+        calcHelpFooter: 'Type calc <expression> to evaluate it now, or calc solve ... to do algebra.',
       },
       ja: {
         escToClose: 'Escまたは外側をクリックして閉じる',
@@ -298,6 +313,7 @@
         sudoconfigColorError: 'colorは6桁の16進数値を指定してください(例: sudoconfig color ff8800)。',
         sudoconfigLangError: 'langは "en" または "ja" を指定してください(例: sudoconfig lang ja)。',
         sudoconfigSet: (key, value) => `✓ ${key} を "${value}" に設定しました(sudoconfigによる正確な値)。`,
+        sudoconfigValueList: (key, list) => `"${key}" で対応している値: ${list}`,
         unknownCommand: (cmd) => `不明なコマンドです: "${cmd}"。一覧は "help" と入力してください。`,
         cancelled: 'キャンセルしました。',
         confirmTimedOut: '確認がタイムアウトしました — キャンセルしました。',
@@ -377,6 +393,20 @@
         helpExport: '現在のコンソール出力を.txtファイルとしてダウンロード',
         exportDone: 'ログをダウンロードしました。',
         settingsTease: 'あらあら、可愛いね〜',
+        calcHelpTitle: 'CALC — クイックリファレンス',
+        calcHelpArithmetic: '四則演算:  +  -  *  /  %  ^ (累乗)  ! (階乗)',
+        calcHelpArithmeticEx: '例: calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
+        calcHelpFunctions: '関数:  sqrt sin cos tan asin acos atan log(常用対数) ln(自然対数) abs floor ceil round exp max min pow',
+        calcHelpFunctionsEx: '例: calc sqrt(16) → 4     calc max(3,9,5) → 9     calc pow(2,10) → 1024',
+        calcHelpConstants: '定数:  pi   e   ans (直前の結果を記憶)',
+        calcHelpConstantsEx: '例: calc pi * 2     calc ans + 1',
+        calcHelpAlgebra: '代数:  calc solve <方程式> — 一次・二次方程式(変数1つ)を解く',
+        calcHelpAlgebraEx: '例: calc solve 2x+5=3x-1 → x = 6     calc solve x^2-5x+6=0 → x = 3 または 2',
+        calcHelpSystem: '連立方程式:  calc solve <方程式1>, <方程式2> — 2変数連立一次方程式を解く',
+        calcHelpSystemEx: '例: calc solve x+y=10, x-y=2 → x = 6, y = 4',
+        calcHelpUnits: '単位変換:  calc <数値> <単位> to <単位> — 長さ(m km cm mm mi yd ft in)、質量(kg g mg lb oz)、時間(s min h day)、温度(c f k)',
+        calcHelpUnitsEx: '例: calc 5 km to mi     calc 100 c to f',
+        calcHelpFooter: 'calc <式> で今すぐ計算、または calc solve ... で代数を解けます。',
       },
     }
     function t(key, ...args) {
@@ -495,21 +525,30 @@
       },
       // The one bit of UI localization in UJIFrame — deliberately not exposed
       // via `config` (CONFIG_SCHEMA has no `lang` key), only sudoconfig.
+      // `values` is a known/finite list, so a missing value can list it
+      // (unlike maxLoop/color, which take arbitrary numbers/hex and just
+      // fall back to the generic usage message instead).
       lang: {
-        validate: (v) => v === 'en' || v === 'ja',
+        values: ['en', 'ja'],
+        validate: (v) => SUDOCONFIG_HANDLERS.lang.values.includes(v),
         apply: (v) => { CONFIG.lang = v },
         error: () => t('sudoconfigLangError'),
       },
     }
     function cmdSudoConfig(args) {
       const [key, value] = args
-      if (!key || !value) {
+      if (!key) {
         println(t('sudoconfigUsage'), 'tf-warn')
         return
       }
       const handler = SUDOCONFIG_HANDLERS[key]
       if (!handler) {
         println(t('sudoconfigUnsupported', key, Object.keys(SUDOCONFIG_HANDLERS).join(', ')), 'tf-err')
+        return
+      }
+      if (!value) {
+        if (handler.values) println(t('sudoconfigValueList', key, handler.values.join(', ')), 'tf-ok')
+        else println(t('sudoconfigUsage'), 'tf-warn')
         return
       }
       if (!handler.validate(value)) {
@@ -1358,9 +1397,28 @@
       }
     }
 
+    function printCalcHelp() {
+      println(t('calcHelpTitle'), 'tf-gold')
+      print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
+      println(t('calcHelpArithmetic'), 'tf-hl')
+      println(t('calcHelpArithmeticEx'), 'tf-dim')
+      println(t('calcHelpFunctions'), 'tf-hl')
+      println(t('calcHelpFunctionsEx'), 'tf-dim')
+      println(t('calcHelpConstants'), 'tf-hl')
+      println(t('calcHelpConstantsEx'), 'tf-dim')
+      println(t('calcHelpAlgebra'), 'tf-hl')
+      println(t('calcHelpAlgebraEx'), 'tf-dim')
+      println(t('calcHelpSystem'), 'tf-hl')
+      println(t('calcHelpSystemEx'), 'tf-dim')
+      println(t('calcHelpUnits'), 'tf-hl')
+      println(t('calcHelpUnitsEx'), 'tf-dim')
+      print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
+      println(t('calcHelpFooter'), 'tf-dim')
+    }
+
     function cmdCalc(args) {
       const expr = args.join(' ')
-      if (!expr) { println(t('calcUsage'), 'tf-warn'); return }
+      if (!expr) { printCalcHelp(); return }
       try {
         if (/^solve\s+/i.test(expr)) {
           cmdCalcSolve(expr.replace(/^solve\s+/i, ''))
