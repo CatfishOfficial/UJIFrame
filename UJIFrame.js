@@ -630,6 +630,8 @@
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
       print(`  <span class="tf-hl">${'cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">Run commands in sequence — any confirmations still prompt, sequence resumes after</span>`)
       print(`  <span class="tf-hl">${'sudoseq | cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">Sequence + auto-answer every confirmation</span>`)
+      print(`  <span class="tf-hl">${'loop <n> cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">Repeat a command (or chain) n times</span>`)
+      print(`  <span class="tf-hl">${'wait <ms|Ns>'.padEnd(34)}</span><span class="tf-dim">Pause a chain, e.g. wait 2000 or wait 2s</span>`)
       for (const [name, def] of commands) {
         if (!def.help || name !== def.name) continue
         printHelpRow(name, def.help)
@@ -699,6 +701,14 @@
       print(`<pre style="font-family:'Courier New',monospace;font-size:12px;color:#4CAF50;line-height:1.2;margin:0;">${escHtml(UJI_LOGO)}</pre>`)
     }
 
+    // Accepts a plain number (ms) or a number suffixed with "s" (seconds).
+    function parseDuration(str) {
+      const m = String(str || '').trim().match(/^(\d+(?:\.\d+)?)(ms|s)?$/i)
+      if (!m) return NaN
+      const n = parseFloat(m[1])
+      return m[2] && m[2].toLowerCase() === 's' ? n * 1000 : n
+    }
+
     // ── built-in commands ───────────────────────────────────────────────
     // Routed through the same registry host apps use via registerCommand.
     // config/cowsay/matrix are left without a `.help` entry because printHelp
@@ -710,6 +720,15 @@
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
     registerCommand('uji', { hidden: true, help: 'Print the UJIFrame logo', run: () => cmdUji() })
+    registerCommand('wait', {
+      builtin: true,
+      run: async (args) => {
+        const ms = parseDuration(args[0])
+        if (!Number.isFinite(ms) || ms < 0) { println('Usage: wait <ms> or wait <N>s', 'tf-err'); return }
+        println(`Waiting ${ms}ms...`, 'tf-dim')
+        await new Promise(resolve => setTimeout(resolve, ms))
+      },
+    })
     registerCommand('matrix', {
       builtin: true,
       run: () => {
@@ -832,6 +851,19 @@
             processQueue(segments)
           },
         }
+        return
+      }
+
+      const loopMatch = trimmed.match(/^loop\s+(\d+)\s+(.+)$/i)
+      if (loopMatch) {
+        printCmdEcho(trimmed)
+        const count = parseInt(loopMatch[1], 10)
+        const segments = loopMatch[2].split('|').map(s => s.trim()).filter(Boolean)
+        if (count <= 0) { println('loop count must be a positive integer.', 'tf-err'); return }
+        if (segments.length === 0) { println('Usage: loop <count> <command> [| command2 | ...]', 'tf-warn'); return }
+        const queue = []
+        for (let i = 0; i < count; i++) queue.push(...segments)
+        await processQueue(queue)
         return
       }
 
