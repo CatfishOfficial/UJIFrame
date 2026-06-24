@@ -142,6 +142,7 @@
       chainOverlay: ['on', 'off'],
       glitterSpeed: Object.keys(GLITTER_SPEED_MULT),
       glitterRainbow: ['on', 'off'],
+      maxLoop: ['positive integer', 'unlimited'],
     }
     let CONFIG = {
       glitter: opts.glitter,
@@ -151,6 +152,7 @@
       chainOverlay: 'on',
       glitterSpeed: 'normal',
       glitterRainbow: 'on',
+      maxLoop: '100',
     }
     try {
       Object.assign(CONFIG, JSON.parse(localStorage.getItem(opts.storageKey) || '{}'))
@@ -191,10 +193,17 @@
         println(`${key} = ${CONFIG[key]}`, 'tf-dim')
         return
       }
-      const allowed = CONFIG_SCHEMA[key]
-      if (!allowed.includes(value)) {
-        println(`Invalid value. "${key}" must be one of: ${allowed.join(', ')}`, 'tf-err')
-        return
+      if (key === 'maxLoop') {
+        if (value !== 'unlimited' && !/^[1-9]\d*$/.test(value)) {
+          println('Invalid value. "maxLoop" must be a positive integer or "unlimited".', 'tf-err')
+          return
+        }
+      } else {
+        const allowed = CONFIG_SCHEMA[key]
+        if (!allowed.includes(value)) {
+          println(`Invalid value. "${key}" must be one of: ${allowed.join(', ')}`, 'tf-err')
+          return
+        }
       }
       if (key === 'color' && value === 'lightmode') {
         println('who uses light mode?', 'tf-dim')
@@ -882,6 +891,11 @@
         const segments = loopMatch[2].split('|').map(s => s.trim()).filter(Boolean)
         if (count <= 0) { println('loop count must be a positive integer.', 'tf-err'); return }
         if (segments.length === 0) { println('Usage: loop <count> <command> [| command2 | ...]', 'tf-warn'); return }
+        const maxLoop = CONFIG.maxLoop === 'unlimited' ? Infinity : parseInt(CONFIG.maxLoop, 10)
+        if (count > maxLoop) {
+          println(`loop count ${count} exceeds the configured max (${CONFIG.maxLoop}). Raise it with "config maxLoop <n>" or "config maxLoop unlimited".`, 'tf-err')
+          return
+        }
         const queue = []
         for (let i = 0; i < count; i++) queue.push(...segments)
         await processQueue(queue)
