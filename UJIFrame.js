@@ -275,6 +275,7 @@
         helpExport: 'Download the current console output as a .txt file',
         exportDone: 'Log downloaded.',
         settingsTease: "awwww that's cute",
+        tabTypeSomethingFirst: 'try typing something first',
         calcHelpTitle: 'CALC — quick reference',
         calcHelpArithmetic: 'Arithmetic:  +  -  *  /  %  ^ (power)  ! (factorial)',
         calcHelpArithmeticEx: 'e.g. calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
@@ -409,6 +410,7 @@
         helpExport: '現在のコンソール出力を.txtファイルとしてダウンロード',
         exportDone: 'ログをダウンロードしました。',
         settingsTease: 'あらあら、可愛いね〜',
+        tabTypeSomethingFirst: 'まず何か入力してみて',
         calcHelpTitle: 'CALC — クイックリファレンス',
         calcHelpArithmetic: '四則演算:  +  -  *  /  %  ^ (累乗)  ! (階乗)',
         calcHelpArithmeticEx: '例: calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
@@ -1851,15 +1853,15 @@
         const val = input.value
         if (val.includes(' ')) return // only completes the leading command name, not arguments
         const prefix = val.toLowerCase()
-        // Only the visible registry — tab-completing hidden commands would
-        // defeat the point of them being discoverable only via sudohelp.
-        // An empty prefix (Tab on a blank line) lists everything, rather
-        // than silently doing nothing.
-        const matches = [...commands.keys()].filter(name => name.startsWith(prefix)).sort()
-        if (matches.length === 1 && prefix) {
+        if (!prefix) { println(t('tabTypeSomethingFirst'), 'tf-dim'); return }
+        // Hidden commands complete too — you still have to know/guess the
+        // name to get a match, so this is a discovery path, not a giveaway.
+        const allNames = new Set([...commands.keys(), ...hiddenCommands.keys()])
+        const matches = [...allNames].filter(name => name.startsWith(prefix)).sort()
+        if (matches.length === 1) {
           input.value = matches[0] + ' '
-        } else if (matches.length > 0) {
-          if (val) printCmdEcho(val, '$ (tab)')
+        } else if (matches.length > 1) {
+          printCmdEcho(val, '$ (tab)')
           print(matches.map(m => `<span class="tf-hl">${escHtml(m)}</span>`).join('  '))
         }
       } else if (e.key === 'ArrowUp') {
