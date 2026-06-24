@@ -133,13 +133,25 @@
     function clearOutput() { output.innerHTML = '' }
 
     // ── config system ────────────────────────────────────────────────────
+    const GLITTER_SPEED_MULT = { slow: 0.6, normal: 1, fast: 1.8 }
     const CONFIG_SCHEMA = {
       glitter: ['lively', 'focus', 'static'],
       color: [...Object.keys(THEME_PALETTE), 'lightmode'],
       timestamps: ['on', 'off'],
       confirmTimeout: ['30', '60', '120', 'never'],
+      chainOverlay: ['on', 'off'],
+      glitterSpeed: Object.keys(GLITTER_SPEED_MULT),
+      glitterRainbow: ['on', 'off'],
     }
-    let CONFIG = { glitter: opts.glitter, color: opts.color, timestamps: 'off', confirmTimeout: 'never' }
+    let CONFIG = {
+      glitter: opts.glitter,
+      color: opts.color,
+      timestamps: 'off',
+      confirmTimeout: 'never',
+      chainOverlay: 'on',
+      glitterSpeed: 'normal',
+      glitterRainbow: 'on',
+    }
     try {
       Object.assign(CONFIG, JSON.parse(localStorage.getItem(opts.storageKey) || '{}'))
     } catch (e) {}
@@ -293,7 +305,7 @@
     function startMatrixEgg(label) {
       if (_mEggCanvas) return
       _mEggCanvas = createCanvas(10, 0.78)
-      runMatrixRain(_mEggCanvas, label, {}, raf => { _mEggRaf = raf })
+      runMatrixRain(_mEggCanvas, label, { speed: GLITTER_SPEED_MULT[CONFIG.glitterSpeed] || 1 }, raf => { _mEggRaf = raf })
     }
     function stopMatrixEgg() {
       if (_mEggRaf) { cancelAnimationFrame(_mEggRaf); _mEggRaf = null }
@@ -720,7 +732,7 @@
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
     registerCommand('uji', { hidden: true, help: 'Print the UJIFrame logo', run: () => cmdUji() })
-    registerCommand('sudo', { hidden: true, help: 'superuser did', run: () => println('superuser did') })
+    registerCommand('sudo', { hidden: true, help: 'do superuser', run: () => println('superuser did') })
     registerCommand('wait', {
       builtin: true,
       run: async (args) => {
@@ -757,6 +769,7 @@
     let currentStepIndex = -1
     let _queueListEl = null
     let seqMatrixOpts = null
+    let chainOverlayActive = false
 
     function startQueueChecklist(cmds) {
       const div = document.createElement('div')
@@ -789,7 +802,8 @@
     }
 
     function finishQueue() {
-      if (sequenceActive) stopLoading()
+      if (chainOverlayActive) stopLoading()
+      chainOverlayActive = false
       sequenceActive = false
       sequenceAbort = false
       endQueueChecklist()
@@ -803,8 +817,14 @@
       currentStepIndex = -1
       sequenceActive = true
       startQueueChecklist(queue)
-      seqMatrixOpts = queue.length > 3 || sudoMode ? { speed: 1.8, rainbow: true } : {}
-      startLoading('RUNNING SEQUENCE...', seqMatrixOpts)
+      if (CONFIG.chainOverlay !== 'off') {
+        chainOverlayActive = true
+        seqMatrixOpts = {
+          speed: GLITTER_SPEED_MULT[CONFIG.glitterSpeed] || 1,
+          rainbow: CONFIG.glitterRainbow === 'on' && (queue.length > 3 || sudoMode),
+        }
+        startLoading('RUNNING SEQUENCE...', seqMatrixOpts)
+      }
       ensureSequenceWatchdog()
       while (commandQueue.length > 0 && !sequenceAbort) {
         const next = commandQueue.shift()
