@@ -161,7 +161,7 @@
     function resolveMaxLoop() {
       if (CONFIG.maxLoop in MAX_LOOP_VALUES) return MAX_LOOP_VALUES[CONFIG.maxLoop]
       const n = parseInt(CONFIG.maxLoop, 10)
-      return Number.isFinite(n) && n > 0 ? n : MAX_LOOP_VALUES.safe
+      return Number.isFinite(n) && n >= 0 ? n : MAX_LOOP_VALUES.safe
     }
     // UI strings, localizable via sudoconfig only — `lang` is deliberately not
     // in CONFIG_SCHEMA, so `config` never lists or accepts it. Config values
@@ -190,6 +190,8 @@
         sudoconfigUsage: 'Usage: sudoconfig <key> <exact value> — bypasses the preset list for keys that support it.',
         sudoconfigUnsupported: (key, list) => `"${key}" doesn't support exact values via sudoconfig. Supported: ${list}.`,
         sudoconfigMaxLoopError: 'maxLoop must be a positive integer (e.g. sudoconfig maxLoop 420).',
+        sudoconfigMaxLoopNegative: 'maxLoop must be positive. For negative loops, please install UJI Chronomancy.',
+        sudoconfigMaxLoopZero: 'but why?',
         sudoconfigColorError: 'color must be a 6-digit hex value (e.g. sudoconfig color ff8800).',
         sudoconfigLangError: 'lang must be "en" or "ja" (e.g. sudoconfig lang ja).',
         sudoconfigSet: (key, value) => `✓ ${key} set to "${value}" (exact value via sudoconfig).`,
@@ -287,6 +289,18 @@
         calcHelpUnits: 'Unit conversion:  calc <n> <unit> to <unit> — length (m km cm mm mi yd ft in), mass (kg g mg lb oz), time (s min h day), temperature (c f k)',
         calcHelpUnitsEx: 'e.g. calc 5 km to mi     calc 100 c to f',
         calcHelpFooter: 'Type calc <expression> to evaluate it now, or calc solve ... to do algebra.',
+        cowsayHints: [
+          'have you tried the konami code?',
+          'sudo makes things... interesting.',
+          'not everything is in the help menu.',
+          'try pressing tab sometime.',
+          'this terminal remembers more than you would think.',
+          'you can teach it new tricks. look into alias.',
+          'math class flashbacks? try solving something.',
+          'exclamation marks are more useful than you would think.',
+          'some commands only answer to sudo.',
+          'try asking for the settings. see what happens.',
+        ],
       },
       ja: {
         escToClose: 'Escまたは外側をクリックして閉じる',
@@ -310,6 +324,8 @@
         sudoconfigUsage: '使い方: sudoconfig <キー> <正確な値> — 対応するキーのプリセット一覧をバイパスします。',
         sudoconfigUnsupported: (key, list) => `"${key}" はsudoconfigでの正確な値の指定に対応していません。対応キー: ${list}。`,
         sudoconfigMaxLoopError: 'maxLoopは正の整数を指定してください(例: sudoconfig maxLoop 420)。',
+        sudoconfigMaxLoopNegative: 'maxLoopは正の値にしてください。負のループをご希望の場合は「UJI Chronomancy」をインストールしてください。',
+        sudoconfigMaxLoopZero: 'でも、なんで?',
         sudoconfigColorError: 'colorは6桁の16進数値を指定してください(例: sudoconfig color ff8800)。',
         sudoconfigLangError: 'langは "en" または "ja" を指定してください(例: sudoconfig lang ja)。',
         sudoconfigSet: (key, value) => `✓ ${key} を "${value}" に設定しました(sudoconfigによる正確な値)。`,
@@ -407,6 +423,18 @@
         calcHelpUnits: '単位変換:  calc <数値> <単位> to <単位> — 長さ(m km cm mm mi yd ft in)、質量(kg g mg lb oz)、時間(s min h day)、温度(c f k)',
         calcHelpUnitsEx: '例: calc 5 km to mi     calc 100 c to f',
         calcHelpFooter: 'calc <式> で今すぐ計算、または calc solve ... で代数を解けます。',
+        cowsayHints: [
+          'コナミコマンドって試した?',
+          'sudoをつけると…面白いことが起きるかも。',
+          'helpに全部書いてあるわけじゃないよ。',
+          'Tabキー、押してみた?',
+          'このターミナル、思ったより色々覚えてるよ。',
+          '新しい技を教えられるよ。aliasを調べてみて。',
+          '数学の授業を思い出す?何か解いてみたら?',
+          '!マークって意外と便利だよ。',
+          'sudoにしか答えないコマンドもあるんだ。',
+          '「設定」って聞いてみたら?何が起きるかな。',
+        ],
       },
     }
     function t(key, ...args) {
@@ -514,9 +542,10 @@
     // a fixed preset list (e.g. maxLoop's safe/freedom, color's named palette).
     const SUDOCONFIG_HANDLERS = {
       maxLoop: {
-        validate: (v) => /^[1-9]\d*$/.test(v),
+        validate: (v) => /^(0|[1-9]\d*)$/.test(v),
         apply: (v) => { CONFIG.maxLoop = v },
-        error: () => t('sudoconfigMaxLoopError'),
+        // Negative input gets its own joke instead of the generic error.
+        error: (v) => /^-\d+$/.test(v) ? t('sudoconfigMaxLoopNegative') : t('sudoconfigMaxLoopError'),
       },
       color: {
         validate: (v) => !!hexToRgb(v),
@@ -552,12 +581,13 @@
         return
       }
       if (!handler.validate(value)) {
-        println(handler.error(), 'tf-err')
+        println(handler.error(value), 'tf-err')
         return
       }
       handler.apply(value)
       saveConfig()
       println(t('sudoconfigSet', key, value), 'tf-ok')
+      if (key === 'maxLoop' && value === '0') println(t('sudoconfigMaxLoopZero'), 'tf-dim')
     }
 
     // ── animations ───────────────────────────────────────────────────────
@@ -1017,8 +1047,15 @@
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
     }
 
+    // cowsay with no message drops a vague hint instead of "moo" — kept
+    // deliberately non-specific, just enough of a nudge to go exploring.
+    function pickCowsayHint() {
+      const hints = t('cowsayHints')
+      return hints[Math.floor(Math.random() * hints.length)]
+    }
+
     function cmdCowsay(args) {
-      const msg = args.join(' ') || 'moo'
+      const msg = args.join(' ') || pickCowsayHint()
       const maxW = 38
       const words = msg.split(' ')
       const lines = []
