@@ -216,6 +216,7 @@
         sudoseqAutoConfirmLabel: '$ (sudoseq auto-confirm)',
         helpClearDesc: 'Clear console output',
         helpExitDesc: 'Close admin console',
+        itsExit: 'its exit',
         helpUji: 'Print the UJIFrame logo',
         helpSudo: 'do superuser',
         sudoOutput: 'superuser did',
@@ -275,6 +276,7 @@
         sudoseqAutoConfirmLabel: '$ (sudoseq自動確認)',
         helpClearDesc: 'コンソールの表示をクリア',
         helpExitDesc: '管理コンソールを閉じる',
+        itsExit: 'それは exit だよ',
         helpUji: 'UJIFrameのロゴを表示',
         helpSudo: 'スーパーユーザーを実行',
         sudoOutput: 'スーパーユーザーが実行しました',
@@ -950,6 +952,12 @@
     registerCommand('sudohelp', { builtin: true, run: () => printSudoHelp() })
     registerCommand('clear', { builtin: true, aliases: ['cls'], help: () => ['clear / cls', t('helpClearDesc')], run: () => clearOutput() })
     registerCommand('exit', { builtin: true, aliases: ['q'], help: () => ['exit / q', t('helpExitDesc')], run: () => closePanel() })
+    // Quiet typo-catchers for people who forget the command is "exit" — not
+    // real aliases (they don't close the panel), just a nudge in the right
+    // direction. No `.help`, so they stay out of both help and sudohelp.
+    ;['close', 'quit', 'leave', 'bye', 'logout', 'shutdown', 'end'].forEach((name) => {
+      registerCommand(name, { builtin: true, run: () => println(t('itsExit')) })
+    })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('sudoconfig', { hidden: true, help: () => t('helpSudoconfig'), run: (args) => cmdSudoConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
