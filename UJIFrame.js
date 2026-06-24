@@ -252,6 +252,26 @@
         calcAlgebraTooManyEquations: 'solve supports at most two comma-separated equations',
         calcAlgebraIdentity: 'True for all values (identity)',
         calcAlgebraNoSolution: 'No solution',
+        calcUnitMismatch: (from, to) => `Can't convert "${from}" to "${to}" — unknown or incompatible units`,
+        helpHistory: 'List past commands (use !n to re-run #n)',
+        helpBang: 'Re-run command #n from "history"',
+        historyEmpty: 'No history yet.',
+        historyNoSuchEntry: (n) => `No history entry #${n}.`,
+        helpAlias: 'alias to view/list, alias name=cmd to define',
+        helpUnalias: 'Remove a user-defined alias',
+        aliasNone: 'No aliases defined.',
+        aliasUsage: 'Usage: alias name=command (e.g. alias gco=cowsay)',
+        aliasNotFound: (name) => `No alias named "${name}".`,
+        aliasShadowsCommand: (name) => `"${name}" is already a real command — can't alias over it.`,
+        aliasSet: (name, value) => `✓ alias ${name}="${value}"`,
+        unaliasUsage: 'Usage: unalias <name>',
+        unaliasDone: (name) => `✓ Removed alias "${name}".`,
+        helpFind: 'Filter the console output, e.g. find error — find with no term clears it',
+        findCleared: 'Filter cleared — showing everything.',
+        findMatches: (n) => `${n} matching line${n !== 1 ? 's' : ''} shown, rest hidden. "find" with no term to clear.`,
+        helpExport: 'Download the current console output as a .txt file',
+        exportDone: 'Log downloaded.',
+        settingsTease: "awwww that's cute",
       },
       ja: {
         escToClose: 'Escまたは外側をクリックして閉じる',
@@ -337,6 +357,26 @@
         calcAlgebraTooManyEquations: 'solveはカンマ区切りで最大2つの方程式までです',
         calcAlgebraIdentity: 'すべての値で成り立ちます(恒等式)',
         calcAlgebraNoSolution: '解はありません',
+        calcUnitMismatch: (from, to) => `"${from}" を "${to}" に変換できません — 不明または互換性のない単位です`,
+        helpHistory: '過去のコマンドを一覧表示(!n で#nを再実行)',
+        helpBang: '"history" の#nのコマンドを再実行',
+        historyEmpty: '履歴はまだありません。',
+        historyNoSuchEntry: (n) => `履歴 #${n} は存在しません。`,
+        helpAlias: 'alias で一覧表示、alias name=cmd で定義',
+        helpUnalias: 'ユーザー定義のaliasを削除',
+        aliasNone: 'aliasは定義されていません。',
+        aliasUsage: '使い方: alias name=command(例: alias gco=cowsay)',
+        aliasNotFound: (name) => `"${name}" というaliasはありません。`,
+        aliasShadowsCommand: (name) => `"${name}" は既存の実コマンドです — aliasで上書きできません。`,
+        aliasSet: (name, value) => `✓ alias ${name}="${value}"`,
+        unaliasUsage: '使い方: unalias <name>',
+        unaliasDone: (name) => `✓ alias "${name}" を削除しました。`,
+        helpFind: 'コンソール出力を絞り込み。例: find error — 引数なしで解除',
+        findCleared: '絞り込みを解除しました — すべて表示中。',
+        findMatches: (n) => `${n}件の一致行を表示、残りは非表示。引数なしの "find" で解除。`,
+        helpExport: '現在のコンソール出力を.txtファイルとしてダウンロード',
+        exportDone: 'ログをダウンロードしました。',
+        settingsTease: 'あらあら、可愛いね〜',
       },
     }
     function t(key, ...args) {
@@ -917,6 +957,7 @@
       print(`  <span class="tf-hl">${'sudoseq | cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">${t('helpSudoseq')}</span>`)
       print(`  <span class="tf-hl">${'loop <n> cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">${t('helpLoop')}</span>`)
       print(`  <span class="tf-hl">${'wait <ms|Ns>'.padEnd(34)}</span><span class="tf-dim">${t('helpWait')}</span>`)
+      print(`  <span class="tf-hl">${'!n'.padEnd(34)}</span><span class="tf-dim">${t('helpBang')}</span>`)
       for (const [name, def] of commands) {
         if (!def.help || name !== def.name) continue
         printHelpRow(name, resolveHelp(def))
@@ -1164,6 +1205,28 @@
       return `${formatCalcResult(re)} ${im < 0 ? '-' : '+'} ${formatCalcResult(Math.abs(im))}i`
     }
 
+    // ── unit conversion (calc <n> <unit> to <unit>) ─────────────────────
+    const UNIT_GROUPS = {
+      length: { m: 1, km: 1000, cm: 0.01, mm: 0.001, mi: 1609.344, yd: 0.9144, ft: 0.3048, in: 0.0254 },
+      mass: { kg: 1, g: 0.001, mg: 0.000001, lb: 0.45359237, oz: 0.028349523125 },
+      time: { s: 1, sec: 1, min: 60, h: 3600, hr: 3600, day: 86400 },
+    }
+    function convertTemperature(value, from, to) {
+      const celsius = from === 'c' ? value : from === 'f' ? (value - 32) * 5 / 9 : value - 273.15
+      if (to === 'c') return celsius
+      if (to === 'f') return celsius * 9 / 5 + 32
+      return celsius + 273.15
+    }
+    function convertUnits(value, fromUnit, toUnit) {
+      const from = fromUnit.toLowerCase(), to = toUnit.toLowerCase()
+      const isTemp = (u) => u === 'c' || u === 'f' || u === 'k'
+      if (isTemp(from) && isTemp(to)) return convertTemperature(value, from, to)
+      for (const group of Object.values(UNIT_GROUPS)) {
+        if (from in group && to in group) return (value * group[from]) / group[to]
+      }
+      throw new CalcError('calcUnitMismatch', fromUnit, toUnit)
+    }
+
     // ── algebra solver (calc solve) ─────────────────────────────────────
     // A separate, deliberately restricted grammar for plain polynomial
     // terms (e.g. "3x^2", "-5x", "7") — not the general expression
@@ -1303,6 +1366,14 @@
           cmdCalcSolve(expr.replace(/^solve\s+/i, ''))
           return
         }
+        const convertMatch = expr.match(/^(-?\d+(?:\.\d+)?)\s*([A-Za-z]+)\s+to\s+([A-Za-z]+)$/i)
+        if (convertMatch) {
+          const [, numStr, fromUnit, toUnit] = convertMatch
+          const result = convertUnits(parseFloat(numStr), fromUnit, toUnit)
+          lastCalcResult = result
+          println(`= ${formatCalcResult(result)} ${toUnit}`, 'tf-ok')
+          return
+        }
         const result = evalMathExpr(expr)
         lastCalcResult = result
         println(`= ${formatCalcResult(result)}`, 'tf-ok')
@@ -1310,6 +1381,91 @@
         const msg = e instanceof CalcError ? t(e.key, ...e.args) : e.message
         println(t('errorPrefix') + msg, 'tf-err')
       }
+    }
+
+    // ── history, aliases, find, export ──────────────────────────────────
+    function cmdHistory() {
+      if (history.length === 0) { println(t('historyEmpty'), 'tf-dim'); return }
+      ;[...history].reverse().forEach((cmd, i) => {
+        print(`  <span class="tf-dim">${String(i + 1).padStart(4)}</span>  ${escHtml(cmd)}`)
+      })
+    }
+
+    // User-defined aliases — separate from registerCommand's registry since
+    // these are end-user shortcuts (persisted per browser), not host-app
+    // commands. `dispatch()` expands them before real-command lookup.
+    function loadAliases() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(opts.storageKey + '_aliases') || '{}')
+        return raw && typeof raw === 'object' ? raw : {}
+      } catch (e) { return {} }
+    }
+    function saveAliases() {
+      try { localStorage.setItem(opts.storageKey + '_aliases', JSON.stringify(USER_ALIASES)) } catch (e) {}
+    }
+    const USER_ALIASES = loadAliases()
+
+    function cmdAlias(args) {
+      const joined = args.join(' ')
+      if (!joined) {
+        const names = Object.keys(USER_ALIASES)
+        if (names.length === 0) { println(t('aliasNone'), 'tf-dim'); return }
+        names.forEach((name) => print(`  <span class="tf-hl">${name.padEnd(20)}</span>${escHtml(USER_ALIASES[name])}`))
+        return
+      }
+      const eqIdx = joined.indexOf('=')
+      if (eqIdx === -1) {
+        const name = joined.trim().toLowerCase()
+        if (USER_ALIASES[name] === undefined) { println(t('aliasNotFound', name), 'tf-err'); return }
+        println(`${name}=${USER_ALIASES[name]}`, 'tf-dim')
+        return
+      }
+      const name = joined.slice(0, eqIdx).trim().toLowerCase()
+      const value = joined.slice(eqIdx + 1).trim()
+      if (!name || !value) { println(t('aliasUsage'), 'tf-warn'); return }
+      if (commands.has(name) || hiddenCommands.has(name)) { println(t('aliasShadowsCommand', name), 'tf-err'); return }
+      USER_ALIASES[name] = value
+      saveAliases()
+      println(t('aliasSet', name, value), 'tf-ok')
+    }
+    function cmdUnalias(args) {
+      const name = (args[0] || '').toLowerCase()
+      if (!name) { println(t('unaliasUsage'), 'tf-warn'); return }
+      if (USER_ALIASES[name] === undefined) { println(t('aliasNotFound', name), 'tf-err'); return }
+      delete USER_ALIASES[name]
+      saveAliases()
+      println(t('unaliasDone', name), 'tf-ok')
+    }
+
+    function cmdFind(args) {
+      const term = args.join(' ').toLowerCase()
+      const rows = Array.from(output.children)
+      if (!term) {
+        rows.forEach((row) => { row.style.display = '' })
+        println(t('findCleared'), 'tf-dim')
+        return
+      }
+      let matches = 0
+      rows.forEach((row) => {
+        const hit = row.textContent.toLowerCase().includes(term)
+        row.style.display = hit ? '' : 'none'
+        if (hit) matches++
+      })
+      println(t('findMatches', matches), 'tf-dim')
+    }
+
+    function cmdExport() {
+      const text = Array.from(output.children).map((el) => el.textContent).join('\n')
+      const blob = new Blob([text], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${opts.rootId}-log.txt`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      println(t('exportDone'), 'tf-ok')
     }
 
     // ── built-in commands ───────────────────────────────────────────────
@@ -1344,9 +1500,16 @@
       })
     })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
+    // The real command is "config" — "settings" just gets teased, not run.
+    registerCommand('settings', { builtin: true, run: () => println(t('settingsTease')) })
     registerCommand('sudoconfig', { hidden: true, help: () => t('helpSudoconfig'), run: (args) => cmdSudoConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
     registerCommand('calc', { help: () => ['calc <expr|solve ...>', t('helpCalc')], run: (args) => cmdCalc(args) })
+    registerCommand('history', { help: () => ['history', t('helpHistory')], run: () => cmdHistory() })
+    registerCommand('alias', { help: () => ['alias [name[=cmd]]', t('helpAlias')], run: (args) => cmdAlias(args) })
+    registerCommand('unalias', { help: () => ['unalias <name>', t('helpUnalias')], run: (args) => cmdUnalias(args) })
+    registerCommand('find', { help: () => ['find [term]', t('helpFind')], run: (args) => cmdFind(args) })
+    registerCommand('export', { help: () => ['export', t('helpExport')], run: () => cmdExport() })
     registerCommand('uji', { hidden: true, help: () => t('helpUji'), run: () => cmdUji() })
     registerCommand('sudo', { hidden: true, help: () => t('helpSudo'), run: () => println(t('sudoOutput')) })
     registerCommand('wait', {
@@ -1458,17 +1621,47 @@
     }
 
     async function dispatch(raw) {
-      const trimmed = raw.trim()
+      let trimmed = raw.trim()
       if (!trimmed) return
 
-      history.unshift(trimmed)
-      histIdx = -1
-
       if (pendingConfirm) {
+        recordHistory(trimmed)
+        histIdx = -1
         printCmdEcho(trimmed)
         resolvePendingConfirm(trimmed)
         return
       }
+
+      // !n re-runs the nth command shown by `history` (most recent = highest
+      // number) — expand it to the real command text before anything else
+      // sees it, so it can itself be a chain/loop/alias and gets recorded
+      // as the resolved text, not the literal "!n" (matches shell behavior).
+      const bangMatch = trimmed.match(/^!(\d+)$/)
+      if (bangMatch) {
+        const displayList = [...history].reverse()
+        const resolved = displayList[parseInt(bangMatch[1], 10) - 1]
+        if (resolved === undefined) {
+          recordHistory(trimmed)
+          histIdx = -1
+          printCmdEcho(trimmed)
+          println(t('historyNoSuchEntry', bangMatch[1]), 'tf-err')
+          return
+        }
+        trimmed = resolved
+      }
+
+      // User-defined aliases (see `alias`) expand the leading word only,
+      // bash-style — real registered commands always take precedence so an
+      // alias can never shadow a built-in or host command.
+      const firstSpace = trimmed.indexOf(' ')
+      const firstWord = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase()
+      if (USER_ALIASES[firstWord] !== undefined && !commands.has(firstWord) && !hiddenCommands.has(firstWord)) {
+        const restArgs = firstSpace === -1 ? '' : trimmed.slice(firstSpace)
+        trimmed = USER_ALIASES[firstWord] + restArgs
+      }
+
+      recordHistory(trimmed)
+      histIdx = -1
 
       if (/^sudoseq(\s|\||$)/i.test(trimmed)) {
         printCmdEcho(trimmed)
@@ -1520,7 +1713,23 @@
     }
 
     // ── panel lifecycle + input wiring ──────────────────────────────────
-    let history = [], histIdx = -1
+    const HISTORY_LIMIT = 200
+    function loadHistory() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(opts.storageKey + '_history') || '[]')
+        return Array.isArray(raw) ? raw.slice(0, HISTORY_LIMIT) : []
+      } catch (e) { return [] }
+    }
+    function saveHistory() {
+      try { localStorage.setItem(opts.storageKey + '_history', JSON.stringify(history)) } catch (e) {}
+    }
+    // history is stored most-recent-first; recordHistory keeps it capped + persisted.
+    function recordHistory(cmd) {
+      history.unshift(cmd)
+      if (history.length > HISTORY_LIMIT) history.length = HISTORY_LIMIT
+      saveHistory()
+    }
+    let history = loadHistory(), histIdx = -1
 
     function openPanel(triggerOpts) {
       box.classList.remove('tf-boot-anim')
@@ -1542,6 +1751,21 @@
         const val = input.value
         input.value = ''
         dispatch(val)
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        const val = input.value
+        if (val.includes(' ')) return // only completes the leading command name, not arguments
+        const prefix = val.toLowerCase()
+        if (!prefix) return
+        // Only the visible registry — tab-completing hidden commands would
+        // defeat the point of them being discoverable only via sudohelp.
+        const matches = [...commands.keys()].filter(name => name.startsWith(prefix)).sort()
+        if (matches.length === 1) {
+          input.value = matches[0] + ' '
+        } else if (matches.length > 1) {
+          printCmdEcho(val, '$ (tab)')
+          print(matches.map(m => `<span class="tf-hl">${escHtml(m)}</span>`).join('  '))
+        }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         if (histIdx < history.length - 1) { histIdx++; input.value = history[histIdx] }
