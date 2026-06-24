@@ -637,7 +637,6 @@
       print(`  <span class="tf-hl">${'config [key] [value]'.padEnd(34)}</span><span class="tf-dim">View or change CLI settings, e.g. config glitter focus</span>`)
       print(`  <span class="tf-hl">${'matrix'.padEnd(34)}</span><span class="tf-dim">You know what this does</span>`)
       print(`  <span class="tf-hl">${'cowsay [message]'.padEnd(34)}</span><span class="tf-dim">The important one</span>`)
-      print(`  <span class="tf-hl">${'uji'.padEnd(34)}</span><span class="tf-dim">Print the UJIFrame logo</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
     }
 
@@ -702,15 +701,15 @@
 
     // ── built-in commands ───────────────────────────────────────────────
     // Routed through the same registry host apps use via registerCommand.
-    // config/cowsay/matrix/uji are left without a `.help` entry because
-    // printHelp already documents them via dedicated static lines.
+    // config/cowsay/matrix are left without a `.help` entry because printHelp
+    // already documents them via dedicated static lines.
     registerCommand('help', { builtin: true, aliases: ['?'], run: () => printHelp() })
     registerCommand('sudohelp', { builtin: true, run: () => printSudoHelp() })
     registerCommand('clear', { builtin: true, aliases: ['cls'], help: ['clear / cls', 'Clear console output'], run: () => clearOutput() })
     registerCommand('exit', { builtin: true, aliases: ['q'], help: ['exit / q', 'Close admin console'], run: () => closePanel() })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
-    registerCommand('uji', { builtin: true, run: () => cmdUji() })
+    registerCommand('uji', { hidden: true, help: 'Print the UJIFrame logo', run: () => cmdUji() })
     registerCommand('matrix', {
       builtin: true,
       run: () => {
