@@ -720,6 +720,7 @@
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
     registerCommand('uji', { hidden: true, help: 'Print the UJIFrame logo', run: () => cmdUji() })
+    registerCommand('sudo', { hidden: true, help: 'superuser did', run: () => println('superuser did') })
     registerCommand('wait', {
       builtin: true,
       run: async (args) => {
