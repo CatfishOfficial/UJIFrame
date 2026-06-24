@@ -43,7 +43,8 @@
     return `
 #${id}{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.82);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
 #${id}.open{display:flex;}
-#${id}-box{--tf-accent:#4CAF50;--tf-glow:#00ff41;--tf-bg:rgba(0,12,0,0.82);--tf-dim:rgba(0,255,65,0.25);width:860px;max-width:96vw;height:580px;max-height:90vh;background:#0c0c0c;border:1px solid #2a2a2a;border-radius:7px;display:flex;flex-direction:column;font-family:'Courier New',Courier,monospace;box-shadow:0 24px 80px rgba(0,0,0,0.8);position:relative;}
+#${id}-box{--tf-accent:#4CAF50;--tf-glow:#00ff41;--tf-bg:rgba(0,12,0,0.82);--tf-dim:rgba(0,255,65,0.25);width:860px;max-width:96vw;height:580px;max-height:90vh;background:#0c0c0c;border:1px solid #2a2a2a;border-radius:7px;display:flex;flex-direction:column;font-family:'Courier New',Courier,monospace;box-shadow:0 24px 80px rgba(0,0,0,0.8);position:relative;transform-origin:center;}
+#${id}.open #${id}-box{animation:tf-boot 0.4s ease-out;}
 #${id}-titlebar{display:flex;align-items:center;gap:6px;padding:9px 14px;border-bottom:1px solid #1a1a1a;flex-shrink:0;}
 #${id}-titlebar .tf-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
 #${id}-titlebar .tf-label{font-size:11px;color:#444;margin-left:auto;letter-spacing:0.07em;}
@@ -60,6 +61,15 @@
 .tf-simple-overlay-inner{display:flex;align-items:center;gap:8px;background:var(--tf-bg);border:1px solid var(--tf-glow);border-radius:6px;padding:6px 14px;color:var(--tf-glow);font-family:'Courier New',monospace;font-size:12px;font-weight:700;}
 .tf-spinner{width:13px;height:13px;border:2px solid var(--tf-dim);border-top-color:var(--tf-glow);border-radius:50%;animation:tf-spin 0.8s linear infinite;flex-shrink:0;}
 @keyframes tf-spin{to{transform:rotate(360deg);}}
+@keyframes tf-boot{
+  0%{opacity:0;transform:scale(0.9);filter:brightness(2.2) saturate(1.3);}
+  8%{opacity:1;}
+  16%{opacity:0.15;}
+  24%{opacity:1;transform:scale(1.015);}
+  32%{opacity:0.4;}
+  40%{opacity:1;transform:scale(1);filter:brightness(1.5) saturate(1.15);}
+  100%{opacity:1;transform:scale(1);filter:brightness(1) saturate(1);}
+}
 `
   }
 
