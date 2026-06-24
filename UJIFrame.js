@@ -145,6 +145,13 @@
       maxLoop: ['safe', 'freedom'],
     }
     const MAX_LOOP_VALUES = { safe: 100, freedom: Infinity }
+    // CONFIG.maxLoop is normally 'safe'/'freedom', but sudoconfig can set it
+    // to an exact integer string instead — resolve either form to a number.
+    function resolveMaxLoop() {
+      if (CONFIG.maxLoop in MAX_LOOP_VALUES) return MAX_LOOP_VALUES[CONFIG.maxLoop]
+      const n = parseInt(CONFIG.maxLoop, 10)
+      return Number.isFinite(n) && n > 0 ? n : MAX_LOOP_VALUES.safe
+    }
     let CONFIG = {
       glitter: opts.glitter,
       color: opts.color,
@@ -167,7 +174,29 @@
       box.style.setProperty('--tf-bg', t.bg)
       box.style.setProperty('--tf-dim', t.dim)
     }
-    applyTheme(CONFIG_SCHEMA.color.includes(CONFIG.color) ? CONFIG.color : 'green')
+    function hexToRgb(hex) {
+      const m = String(hex || '').replace(/^#/, '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
+      if (!m) return null
+      return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) }
+    }
+    // sudoconfig's exact-value escape hatch for `color` — derives a full
+    // theme (bg/dim) from a single hex instead of picking a named palette.
+    function applyCustomTheme(hex) {
+      const rgb = hexToRgb(hex)
+      if (!rgb) return false
+      const { r, g, b } = rgb
+      const normalized = `#${hex.replace(/^#/, '').toLowerCase()}`
+      box.style.setProperty('--tf-accent', normalized)
+      box.style.setProperty('--tf-glow', normalized)
+      box.style.setProperty('--tf-bg', `rgba(${Math.round(r * 0.08)},${Math.round(g * 0.08)},${Math.round(b * 0.08)},0.82)`)
+      box.style.setProperty('--tf-dim', `rgba(${r},${g},${b},0.25)`)
+      return true
+    }
+    if (CONFIG_SCHEMA.color.includes(CONFIG.color)) {
+      applyTheme(CONFIG.color)
+    } else if (!applyCustomTheme(CONFIG.color)) {
+      applyTheme('green')
+    }
 
     function saveConfig() {
       try { localStorage.setItem(opts.storageKey, JSON.stringify(CONFIG)) } catch (e) {}
@@ -215,6 +244,40 @@
       if (key === 'glitter' && prevValue === 'lively' && value === 'focus') {
         println('boringgg~ :(', 'tf-dim')
       }
+    }
+
+    // Exact-value escape hatch for config keys that `config` only exposes as
+    // a fixed preset list (e.g. maxLoop's safe/freedom, color's named palette).
+    const SUDOCONFIG_HANDLERS = {
+      maxLoop: {
+        validate: (v) => /^[1-9]\d*$/.test(v),
+        apply: (v) => { CONFIG.maxLoop = v },
+        error: 'maxLoop must be a positive integer (e.g. sudoconfig maxLoop 420).',
+      },
+      color: {
+        validate: (v) => !!hexToRgb(v),
+        apply: (v) => { CONFIG.color = `#${v.replace(/^#/, '').toLowerCase()}`; applyCustomTheme(v) },
+        error: 'color must be a 6-digit hex value (e.g. sudoconfig color ff8800).',
+      },
+    }
+    function cmdSudoConfig(args) {
+      const [key, value] = args
+      if (!key || !value) {
+        println('Usage: sudoconfig <key> <exact value> — bypasses the preset list for keys that support it.', 'tf-warn')
+        return
+      }
+      const handler = SUDOCONFIG_HANDLERS[key]
+      if (!handler) {
+        println(`"${key}" doesn't support exact values via sudoconfig. Supported: ${Object.keys(SUDOCONFIG_HANDLERS).join(', ')}.`, 'tf-err')
+        return
+      }
+      if (!handler.validate(value)) {
+        println(handler.error, 'tf-err')
+        return
+      }
+      handler.apply(value)
+      saveConfig()
+      println(`✓ ${key} set to "${value}" (exact value via sudoconfig).`, 'tf-ok')
     }
 
     // ── animations ───────────────────────────────────────────────────────
@@ -733,6 +796,7 @@
     registerCommand('clear', { builtin: true, aliases: ['cls'], help: ['clear / cls', 'Clear console output'], run: () => clearOutput() })
     registerCommand('exit', { builtin: true, aliases: ['q'], help: ['exit / q', 'Close admin console'], run: () => closePanel() })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
+    registerCommand('sudoconfig', { hidden: true, help: 'sudoconfig <key> <exact value> — bypass the preset list (maxLoop, color)', run: (args) => cmdSudoConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
     registerCommand('uji', { hidden: true, help: 'Print the UJIFrame logo', run: () => cmdUji() })
     registerCommand('sudo', { hidden: true, help: 'do superuser', run: () => println('superuser did') })
@@ -885,9 +949,9 @@
         const segments = loopMatch[2].split('|').map(s => s.trim()).filter(Boolean)
         if (count <= 0) { println('loop count must be a positive integer.', 'tf-err'); return }
         if (segments.length === 0) { println('Usage: loop <count> <command> [| command2 | ...]', 'tf-warn'); return }
-        const maxLoop = MAX_LOOP_VALUES[CONFIG.maxLoop]
+        const maxLoop = resolveMaxLoop()
         if (count > maxLoop) {
-          println(`loop count ${count} exceeds the "${CONFIG.maxLoop}" max (${maxLoop}). Switch with "config maxLoop freedom" for no cap.`, 'tf-err')
+          println(`loop count ${count} exceeds the current max (${maxLoop}, maxLoop="${CONFIG.maxLoop}"). Switch with "config maxLoop freedom" or "sudoconfig maxLoop <n>".`, 'tf-err')
           return
         }
         const queue = []
