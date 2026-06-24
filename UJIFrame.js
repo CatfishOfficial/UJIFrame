@@ -637,6 +637,7 @@
       print(`  <span class="tf-hl">${'config [key] [value]'.padEnd(34)}</span><span class="tf-dim">View or change CLI settings, e.g. config glitter focus</span>`)
       print(`  <span class="tf-hl">${'matrix'.padEnd(34)}</span><span class="tf-dim">You know what this does</span>`)
       print(`  <span class="tf-hl">${'cowsay [message]'.padEnd(34)}</span><span class="tf-dim">The important one</span>`)
+      print(`  <span class="tf-hl">${'uji'.padEnd(34)}</span><span class="tf-dim">Print the UJIFrame logo</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
     }
 
@@ -682,16 +683,34 @@
       print(`<pre style="font-family:'Courier New',monospace;font-size:12px;color:#7CFC00;line-height:1.45;margin:0;">${escHtml(bubble + '\n' + cow)}</pre>`)
     }
 
+    const UJI_LOGO = [
+      '     ___            ___               ',
+      '    /\\__\\          /\\  \\        ___   ',
+      '   /:/  /          \\:\\  \\      /\\  \\  ',
+      '  /:/  /       ___ /::\\__\\     \\:\\  \\ ',
+      ' /:/  /  ___  /\\  /:/\\/__/     /::\\__\\',
+      '/:/__/  /\\__\\ \\:\\/:/  /     __/:/\\/__/',
+      '\\:\\  \\ /:/  /  \\::/  /     /\\/:/  /   ',
+      ' \\:\\  /:/  /    \\/__/      \\::/__/    ',
+      '  \\:\\/:/  /                 \\:\\__\\    ',
+      '   \\::/  /                   \\/__/    ',
+      '    \\/__/                             ',
+    ].join('\n')
+    function cmdUji() {
+      print(`<pre style="font-family:'Courier New',monospace;font-size:12px;color:#4CAF50;line-height:1.2;margin:0;">${escHtml(UJI_LOGO)}</pre>`)
+    }
+
     // ── built-in commands ───────────────────────────────────────────────
     // Routed through the same registry host apps use via registerCommand.
-    // config/cowsay/matrix are left without a `.help` entry because printHelp
-    // already documents them via dedicated static lines.
+    // config/cowsay/matrix/uji are left without a `.help` entry because
+    // printHelp already documents them via dedicated static lines.
     registerCommand('help', { builtin: true, aliases: ['?'], run: () => printHelp() })
     registerCommand('sudohelp', { builtin: true, run: () => printSudoHelp() })
     registerCommand('clear', { builtin: true, aliases: ['cls'], help: ['clear / cls', 'Clear console output'], run: () => clearOutput() })
     registerCommand('exit', { builtin: true, aliases: ['q'], help: ['exit / q', 'Close admin console'], run: () => closePanel() })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
+    registerCommand('uji', { builtin: true, run: () => cmdUji() })
     registerCommand('matrix', {
       builtin: true,
       run: () => {
@@ -801,7 +820,7 @@
         const rest = trimmed.slice('sudoseq'.length).trim()
         const segments = rest.split('|').map(s => s.trim()).filter(Boolean)
         if (segments.length === 0) { println('Usage: sudoseq | cmd1 | cmd2 | ...', 'tf-warn'); return }
-        println('⚠ This will run the following commands back-to-back and AUTOMATICALLY answer every "are you sure" / typed confirmation along the way — deletes, archives, and purges will execute immediately with no pause to double check:', 'tf-warn')
+        println('⚠ This will run the following commands back-to-back and AUTOMATICALLY answer every "are you sure" / typed confirmation along the way — any destructive or irreversible commands in the chain will execute immediately with no pause to double check:', 'tf-warn')
         segments.forEach((s, i) => print(`  <span class="tf-dim">${i + 1}.</span> ${escHtml(s)}`))
         print(`Type <span class="tf-hl">${SUDOSEQ_PHRASE}</span> to confirm and run all ${segments.length} command${segments.length !== 1 ? 's' : ''}.`)
         pendingConfirm = {
