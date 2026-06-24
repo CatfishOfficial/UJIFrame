@@ -44,7 +44,7 @@
 #${id}{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.82);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
 #${id}.open{display:flex;}
 #${id}-box{--tf-accent:#4CAF50;--tf-glow:#00ff41;--tf-bg:rgba(0,12,0,0.82);--tf-dim:rgba(0,255,65,0.25);width:860px;max-width:96vw;height:580px;max-height:90vh;background:#0c0c0c;border:1px solid #2a2a2a;border-radius:7px;display:flex;flex-direction:column;font-family:'Courier New',Courier,monospace;box-shadow:0 24px 80px rgba(0,0,0,0.8);position:relative;transform-origin:center;}
-#${id}.open #${id}-box{animation:tf-boot 0.4s ease-out;}
+#${id}.open #${id}-box.tf-boot-anim{animation:tf-boot 0.5s ease-out;}
 #${id}-titlebar{display:flex;align-items:center;gap:6px;padding:9px 14px;border-bottom:1px solid #1a1a1a;flex-shrink:0;}
 #${id}-titlebar .tf-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
 #${id}-titlebar .tf-label{font-size:11px;color:#444;margin-left:auto;letter-spacing:0.07em;}
@@ -62,13 +62,14 @@
 .tf-spinner{width:13px;height:13px;border:2px solid var(--tf-dim);border-top-color:var(--tf-glow);border-radius:50%;animation:tf-spin 0.8s linear infinite;flex-shrink:0;}
 @keyframes tf-spin{to{transform:rotate(360deg);}}
 @keyframes tf-boot{
-  0%{opacity:0;transform:scale(0.9);filter:brightness(2.2) saturate(1.3);}
-  8%{opacity:1;}
-  16%{opacity:0.15;}
-  24%{opacity:1;transform:scale(1.015);}
-  32%{opacity:0.4;}
-  40%{opacity:1;transform:scale(1);filter:brightness(1.5) saturate(1.15);}
-  100%{opacity:1;transform:scale(1);filter:brightness(1) saturate(1);}
+  0%{opacity:0;transform:scale(0.9);filter:brightness(2.4) saturate(1.8) hue-rotate(0deg);}
+  8%{opacity:1;filter:brightness(2.2) saturate(2) hue-rotate(60deg);}
+  16%{opacity:0.15;filter:brightness(1.8) saturate(2) hue-rotate(140deg);}
+  24%{opacity:1;transform:scale(1.015);filter:brightness(2) saturate(2.2) hue-rotate(220deg);}
+  32%{opacity:0.4;filter:brightness(1.6) saturate(2) hue-rotate(290deg);}
+  40%{opacity:1;transform:scale(1);filter:brightness(1.5) saturate(1.6) hue-rotate(360deg);}
+  70%{filter:brightness(1.1) saturate(1.1) hue-rotate(0deg);}
+  100%{opacity:1;transform:scale(1);filter:brightness(1) saturate(1) hue-rotate(0deg);}
 }
 `
   }
@@ -983,8 +984,11 @@
     // ── panel lifecycle + input wiring ──────────────────────────────────
     let history = [], histIdx = -1
 
-    function openPanel() {
+    function openPanel(triggerOpts) {
+      box.classList.remove('tf-boot-anim')
+      void box.offsetWidth // reflow so the boot animation can replay on the next Konami open
       panel.classList.add('open')
+      if (triggerOpts && triggerOpts.boot) box.classList.add('tf-boot-anim')
       setTimeout(() => input.focus(), 50)
       if (output.children.length === 0) printWelcome()
     }
@@ -1038,7 +1042,7 @@
               resolve(true)
               input.focus()
             } else {
-              openPanel()
+              openPanel({ boot: true })
             }
           }
         } else {
