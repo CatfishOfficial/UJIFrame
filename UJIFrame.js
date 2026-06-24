@@ -163,6 +163,102 @@
       const n = parseInt(CONFIG.maxLoop, 10)
       return Number.isFinite(n) && n > 0 ? n : MAX_LOOP_VALUES.safe
     }
+    // UI strings, localizable via sudoconfig only — `lang` is deliberately not
+    // in CONFIG_SCHEMA, so `config` never lists or accepts it. Config values
+    // themselves (on/off, lively/focus/static, etc.) stay in English always —
+    // they're command syntax, not prose, so localizing them would break typing.
+    const STRINGS = {
+      en: {
+        escToClose: 'Esc or click outside to close',
+        welcomeHint: 'Type a command and press Enter. Chain commands with | (e.g. cmd1 | cmd2). Type "help" for the full command list.',
+        helpShowAll: 'Show every available command',
+        helpChain: 'Run commands in sequence — any confirmations still prompt, sequence resumes after',
+        helpSudoseq: 'Sequence + auto-answer every confirmation',
+        helpLoop: 'Repeat a command (or chain) n times',
+        helpWait: 'Pause a chain, e.g. wait 2000 or wait 2s',
+        helpConfig: 'View or change CLI settings, e.g. config glitter focus',
+        helpMatrix: 'You know what this does',
+        helpCowsay: 'The important one',
+        hiddenCommandsTitle: 'HIDDEN COMMANDS',
+        notListedInHelp: '(not listed in help)',
+        currentConfig: 'Current config:',
+        notAConfigOption: (key) => `"${key}" is not a config option. Type "config" to see available options.`,
+        invalidValueEnum: (key, allowed) => `Invalid value. "${key}" must be one of: ${allowed}`,
+        whoUsesLightMode: 'who uses light mode?',
+        configSet: (key, value) => `✓ ${key} set to "${value}".`,
+        boringgg: 'boringgg~ :(',
+        sudoconfigUsage: 'Usage: sudoconfig <key> <exact value> — bypasses the preset list for keys that support it.',
+        sudoconfigUnsupported: (key, list) => `"${key}" doesn't support exact values via sudoconfig. Supported: ${list}.`,
+        sudoconfigMaxLoopError: 'maxLoop must be a positive integer (e.g. sudoconfig maxLoop 420).',
+        sudoconfigColorError: 'color must be a 6-digit hex value (e.g. sudoconfig color ff8800).',
+        sudoconfigLangError: 'lang must be "en" or "ja" (e.g. sudoconfig lang ja).',
+        sudoconfigSet: (key, value) => `✓ ${key} set to "${value}" (exact value via sudoconfig).`,
+        unknownCommand: (cmd) => `Unknown command: "${cmd}". Type "help" for a list.`,
+        cancelled: 'Cancelled.',
+        confirmTimedOut: 'Confirmation timed out — cancelled.',
+        typeYesToConfirm: 'Type "yes" to confirm or anything else to cancel.',
+        typeToConfirmStep: (phrase) => `Type <span class="tf-hl">${phrase}</span> to confirm (1/2).`,
+        typeToConfirm: (phrase) => `Type <span class="tf-hl">${phrase}</span> to confirm.`,
+        confirmedOnceStep2: (phrase) => `Confirmed once. Type <span class="tf-hl">${phrase}</span> to confirm (2/2).`,
+        sudoseqUsage: 'Usage: sudoseq | cmd1 | cmd2 | ...',
+        sudoseqWarning: '⚠ This will run the following commands back-to-back and AUTOMATICALLY answer every "are you sure" / typed confirmation along the way — any destructive or irreversible commands in the chain will execute immediately with no pause to double check:',
+        sudoseqConfirm: (phrase, count) => `Type <span class="tf-hl">${phrase}</span> to confirm and run all ${count} command${count !== 1 ? 's' : ''}.`,
+        loopCountInvalid: 'loop count must be a positive integer.',
+        loopUsage: 'Usage: loop <count> <command> [| command2 | ...]',
+        loopExceeds: (count, maxLoop, raw) => `loop count ${count} exceeds the current max (${maxLoop}, maxLoop="${raw}"). Switch with "config maxLoop freedom" or "sudoconfig maxLoop <n>".`,
+        waitUsage: 'Usage: wait <ms> or wait <N>s',
+        waiting: (ms) => `Waiting ${ms}ms...`,
+        errorPrefix: 'Error: ',
+      },
+      ja: {
+        escToClose: 'Escまたは外側をクリックして閉じる',
+        welcomeHint: 'コマンドを入力してEnterを押してください。| でコマンドを連結できます(例: cmd1 | cmd2)。全コマンド一覧は "help" と入力。',
+        helpShowAll: '利用可能な全コマンドを表示',
+        helpChain: 'コマンドを順番に実行 — 確認が必要な場合は都度表示され、その後続行',
+        helpSudoseq: '連続実行 + すべての確認に自動で答える',
+        helpLoop: 'コマンド(またはチェーン)をn回繰り返す',
+        helpWait: 'チェーンを一時停止。例: wait 2000 または wait 2s',
+        helpConfig: 'CLI設定の表示・変更。例: config glitter focus',
+        helpMatrix: 'もうお分かりですね',
+        helpCowsay: 'これが一番重要',
+        hiddenCommandsTitle: '隠しコマンド',
+        notListedInHelp: '(helpには表示されません)',
+        currentConfig: '現在の設定:',
+        notAConfigOption: (key) => `"${key}" は設定項目ではありません。利用可能な項目は "config" と入力して確認してください。`,
+        invalidValueEnum: (key, allowed) => `無効な値です。"${key}" は次のいずれかを指定してください: ${allowed}`,
+        whoUsesLightMode: 'ライトモードなんて誰が使うの?',
+        configSet: (key, value) => `✓ ${key} を "${value}" に設定しました。`,
+        boringgg: 'つまらない~ :(',
+        sudoconfigUsage: '使い方: sudoconfig <キー> <正確な値> — 対応するキーのプリセット一覧をバイパスします。',
+        sudoconfigUnsupported: (key, list) => `"${key}" はsudoconfigでの正確な値の指定に対応していません。対応キー: ${list}。`,
+        sudoconfigMaxLoopError: 'maxLoopは正の整数を指定してください(例: sudoconfig maxLoop 420)。',
+        sudoconfigColorError: 'colorは6桁の16進数値を指定してください(例: sudoconfig color ff8800)。',
+        sudoconfigLangError: 'langは "en" または "ja" を指定してください(例: sudoconfig lang ja)。',
+        sudoconfigSet: (key, value) => `✓ ${key} を "${value}" に設定しました(sudoconfigによる正確な値)。`,
+        unknownCommand: (cmd) => `不明なコマンドです: "${cmd}"。一覧は "help" と入力してください。`,
+        cancelled: 'キャンセルしました。',
+        confirmTimedOut: '確認がタイムアウトしました — キャンセルしました。',
+        typeYesToConfirm: '"yes" と入力して確認、それ以外でキャンセルします。',
+        typeToConfirmStep: (phrase) => `<span class="tf-hl">${phrase}</span> と入力して確認してください (1/2)。`,
+        typeToConfirm: (phrase) => `<span class="tf-hl">${phrase}</span> と入力して確認してください。`,
+        confirmedOnceStep2: (phrase) => `一度確認しました。<span class="tf-hl">${phrase}</span> と入力してください (2/2)。`,
+        sudoseqUsage: '使い方: sudoseq | cmd1 | cmd2 | ...',
+        sudoseqWarning: '⚠ 以下のコマンドを連続して実行し、すべての確認を自動的に承認します — 破壊的または取り消せない操作も一切確認なしで即実行されます:',
+        sudoseqConfirm: (phrase, count) => `<span class="tf-hl">${phrase}</span> と入力すると、${count}件のコマンドをすべて実行します。`,
+        loopCountInvalid: 'loopの回数は正の整数で指定してください。',
+        loopUsage: '使い方: loop <回数> <コマンド> [| コマンド2 | ...]',
+        loopExceeds: (count, maxLoop, raw) => `指定回数 ${count} は現在の上限(${maxLoop}, maxLoop="${raw}")を超えています。"config maxLoop freedom" または "sudoconfig maxLoop <n>" で変更してください。`,
+        waitUsage: '使い方: wait <ミリ秒> または wait <N>s',
+        waiting: (ms) => `${ms}ms 待機中...`,
+        errorPrefix: 'エラー: ',
+      },
+    }
+    function t(key, ...args) {
+      const dict = STRINGS[CONFIG.lang] || STRINGS.en
+      const entry = key in dict ? dict[key] : STRINGS.en[key]
+      return typeof entry === 'function' ? entry(...args) : entry
+    }
+
     let CONFIG = {
       glitter: opts.glitter,
       color: opts.color,
@@ -172,6 +268,7 @@
       glitterSpeed: 'normal',
       glitterRainbow: 'on',
       maxLoop: 'safe',
+      lang: 'en',
     }
     try {
       Object.assign(CONFIG, JSON.parse(localStorage.getItem(opts.storageKey) || '{}'))
@@ -219,7 +316,7 @@
 
     function cmdConfig(args) {
       if (args.length === 0) {
-        println('Current config:', 'tf-dim')
+        println(t('currentConfig'), 'tf-dim')
         Object.entries(CONFIG_SCHEMA).forEach(([key, allowed]) => {
           print(`  <span class="tf-hl">${key.padEnd(20)}</span>${escHtml(CONFIG[key])}  <span class="tf-dim">(${allowed.join(' | ')})</span>`)
         })
@@ -227,7 +324,7 @@
       }
       const [key, value] = args
       if (!(key in CONFIG_SCHEMA)) {
-        println(`"${key}" is not a config option. Type "config" to see available options.`, 'tf-err')
+        println(t('notAConfigOption', key), 'tf-err')
         return
       }
       if (!value) {
@@ -236,11 +333,11 @@
       }
       const allowed = CONFIG_SCHEMA[key]
       if (!allowed.includes(value)) {
-        println(`Invalid value. "${key}" must be one of: ${allowed.join(', ')}`, 'tf-err')
+        println(t('invalidValueEnum', key, allowed.join(', ')), 'tf-err')
         return
       }
       if (key === 'color' && value === 'lightmode') {
-        println('who uses light mode?', 'tf-dim')
+        println(t('whoUsesLightMode'), 'tf-dim')
         return
       }
       const prevValue = CONFIG[key]
@@ -248,12 +345,12 @@
       saveConfig()
       if (key === 'glitter') GLITTER = value
       if (key === 'color') applyTheme(value)
-      println(`✓ ${key} set to "${value}".`, 'tf-ok')
+      println(t('configSet', key, value), 'tf-ok')
       if (key === 'glitter' && value === 'lively' && prevValue !== 'lively') {
         playLivelyPreview()
       }
       if (key === 'glitter' && prevValue === 'lively' && value === 'focus') {
-        println('boringgg~ :(', 'tf-dim')
+        println(t('boringgg'), 'tf-dim')
       }
     }
 
@@ -263,32 +360,39 @@
       maxLoop: {
         validate: (v) => /^[1-9]\d*$/.test(v),
         apply: (v) => { CONFIG.maxLoop = v },
-        error: 'maxLoop must be a positive integer (e.g. sudoconfig maxLoop 420).',
+        error: () => t('sudoconfigMaxLoopError'),
       },
       color: {
         validate: (v) => !!hexToRgb(v),
         apply: (v) => { CONFIG.color = `#${v.replace(/^#/, '').toLowerCase()}`; applyCustomTheme(v) },
-        error: 'color must be a 6-digit hex value (e.g. sudoconfig color ff8800).',
+        error: () => t('sudoconfigColorError'),
+      },
+      // The one bit of UI localization in UJIFrame — deliberately not exposed
+      // via `config` (CONFIG_SCHEMA has no `lang` key), only sudoconfig.
+      lang: {
+        validate: (v) => v === 'en' || v === 'ja',
+        apply: (v) => { CONFIG.lang = v },
+        error: () => t('sudoconfigLangError'),
       },
     }
     function cmdSudoConfig(args) {
       const [key, value] = args
       if (!key || !value) {
-        println('Usage: sudoconfig <key> <exact value> — bypasses the preset list for keys that support it.', 'tf-warn')
+        println(t('sudoconfigUsage'), 'tf-warn')
         return
       }
       const handler = SUDOCONFIG_HANDLERS[key]
       if (!handler) {
-        println(`"${key}" doesn't support exact values via sudoconfig. Supported: ${Object.keys(SUDOCONFIG_HANDLERS).join(', ')}.`, 'tf-err')
+        println(t('sudoconfigUnsupported', key, Object.keys(SUDOCONFIG_HANDLERS).join(', ')), 'tf-err')
         return
       }
       if (!handler.validate(value)) {
-        println(handler.error, 'tf-err')
+        println(handler.error(), 'tf-err')
         return
       }
       handler.apply(value)
       saveConfig()
-      println(`✓ ${key} set to "${value}" (exact value via sudoconfig).`, 'tf-ok')
+      println(t('sudoconfigSet', key, value), 'tf-ok')
     }
 
     // ── animations ───────────────────────────────────────────────────────
@@ -574,11 +678,11 @@
       return new Promise(resolve => {
         if (sudoMode) { autoResolveTier(tier, resolve); return }
         if (tier === 1) {
-          print('Type "yes" to confirm or anything else to cancel.')
+          print(t('typeYesToConfirm'))
         } else if (tier === 5) {
-          print(`Type <span class="tf-hl">IKnowWhatImDoing!</span> to confirm (1/2).`)
+          print(t('typeToConfirmStep', TIER_PHRASES[2]))
         } else {
-          print(`Type <span class="tf-hl">${TIER_PHRASES[tier]}</span> to confirm.`)
+          print(t('typeToConfirm', TIER_PHRASES[tier]))
         }
         pendingConfirm = { kind: 'tier', tier, step: 1, resolve }
       })
@@ -622,19 +726,19 @@
       if (pc.kind === 'tier') {
         if (pc.tier === 1) {
           const ok = answer.toLowerCase() === 'yes'
-          if (!ok) println('Cancelled.', 'tf-dim')
+          if (!ok) println(t('cancelled'), 'tf-dim')
           pc.resolve(ok)
           return
         }
         if (pc.tier === 5 && pc.step === 1) {
-          if (answer !== TIER_PHRASES[2]) { println('Cancelled.', 'tf-dim'); pc.resolve(false); return }
-          print(`Confirmed once. Type <span class="tf-hl">${TIER_PHRASES[3]}</span> to confirm (2/2).`)
+          if (answer !== TIER_PHRASES[2]) { println(t('cancelled'), 'tf-dim'); pc.resolve(false); return }
+          print(t('confirmedOnceStep2', TIER_PHRASES[3]))
           pendingConfirm = { kind: 'tier', tier: 5, step: 2, resolve: pc.resolve }
           return
         }
         const expected = pc.tier === 5 ? TIER_PHRASES[3] : TIER_PHRASES[pc.tier]
         const ok = answer === expected
-        if (!ok) println('Cancelled.', 'tf-dim')
+        if (!ok) println(t('cancelled'), 'tf-dim')
         pc.resolve(ok)
       }
     }
@@ -650,7 +754,7 @@
       if (!pendingConfirm || CONFIG.confirmTimeout === 'never') return
       const ms = parseInt(CONFIG.confirmTimeout, 10) * 1000
       if (Date.now() - _confirmSetAt >= ms) {
-        println('Confirmation timed out — cancelled.', 'tf-warn')
+        println(t('confirmTimedOut'), 'tf-warn')
         const pc = pendingConfirm
         pendingConfirm = null
         _lastSeenConfirm = null
@@ -699,9 +803,9 @@
     }
 
     function printWelcome() {
-      print(`<span class="tf-gold tf-bold">${escHtml(opts.appName)}</span>  <span class="tf-dim">Esc or click outside to close</span>`)
+      print(`<span class="tf-gold tf-bold">${escHtml(opts.appName)}</span>  <span class="tf-dim">${t('escToClose')}</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
-      println('Type a command and press Enter. Chain commands with | (e.g. cmd1 | cmd2). Type "help" for the full command list.', 'tf-dim')
+      println(t('welcomeHint'), 'tf-dim')
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
       let shown = 0
       for (const [name, def] of commands) {
@@ -710,29 +814,29 @@
         printHelpRow(name, firstHelpRow(def.help))
         shown++
       }
-      print(`  <span class="tf-hl">${'help'.padEnd(34)}</span><span class="tf-dim">Show every available command</span>`)
+      print(`  <span class="tf-hl">${'help'.padEnd(34)}</span><span class="tf-dim">${t('helpShowAll')}</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
     }
 
     function printHelp() {
-      print(`<span class="tf-gold tf-bold">${escHtml(opts.appName)}</span>  <span class="tf-dim">Esc or click outside to close</span>`)
+      print(`<span class="tf-gold tf-bold">${escHtml(opts.appName)}</span>  <span class="tf-dim">${t('escToClose')}</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
-      print(`  <span class="tf-hl">${'cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">Run commands in sequence — any confirmations still prompt, sequence resumes after</span>`)
-      print(`  <span class="tf-hl">${'sudoseq | cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">Sequence + auto-answer every confirmation</span>`)
-      print(`  <span class="tf-hl">${'loop <n> cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">Repeat a command (or chain) n times</span>`)
-      print(`  <span class="tf-hl">${'wait <ms|Ns>'.padEnd(34)}</span><span class="tf-dim">Pause a chain, e.g. wait 2000 or wait 2s</span>`)
+      print(`  <span class="tf-hl">${'cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">${t('helpChain')}</span>`)
+      print(`  <span class="tf-hl">${'sudoseq | cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">${t('helpSudoseq')}</span>`)
+      print(`  <span class="tf-hl">${'loop <n> cmd1 | cmd2 | ...'.padEnd(34)}</span><span class="tf-dim">${t('helpLoop')}</span>`)
+      print(`  <span class="tf-hl">${'wait <ms|Ns>'.padEnd(34)}</span><span class="tf-dim">${t('helpWait')}</span>`)
       for (const [name, def] of commands) {
         if (!def.help || name !== def.name) continue
         printHelpRow(name, def.help)
       }
-      print(`  <span class="tf-hl">${'config [key] [value]'.padEnd(34)}</span><span class="tf-dim">View or change CLI settings, e.g. config glitter focus</span>`)
-      print(`  <span class="tf-hl">${'matrix'.padEnd(34)}</span><span class="tf-dim">You know what this does</span>`)
-      print(`  <span class="tf-hl">${'cowsay [message]'.padEnd(34)}</span><span class="tf-dim">The important one</span>`)
+      print(`  <span class="tf-hl">${'config [key] [value]'.padEnd(34)}</span><span class="tf-dim">${t('helpConfig')}</span>`)
+      print(`  <span class="tf-hl">${'matrix'.padEnd(34)}</span><span class="tf-dim">${t('helpMatrix')}</span>`)
+      print(`  <span class="tf-hl">${'cowsay [message]'.padEnd(34)}</span><span class="tf-dim">${t('helpCowsay')}</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
     }
 
     function printSudoHelp() {
-      print(`<span class="tf-gold tf-bold">HIDDEN COMMANDS</span>  <span class="tf-dim">(not listed in help)</span>`)
+      print(`<span class="tf-gold tf-bold">${t('hiddenCommandsTitle')}</span>  <span class="tf-dim">${t('notListedInHelp')}</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
       for (const [name, def] of hiddenCommands) {
         if (name !== def.name) continue
@@ -807,7 +911,7 @@
     registerCommand('clear', { builtin: true, aliases: ['cls'], help: ['clear / cls', 'Clear console output'], run: () => clearOutput() })
     registerCommand('exit', { builtin: true, aliases: ['q'], help: ['exit / q', 'Close admin console'], run: () => closePanel() })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
-    registerCommand('sudoconfig', { hidden: true, help: 'sudoconfig <key> <exact value> — bypass the preset list (maxLoop, color)', run: (args) => cmdSudoConfig(args) })
+    registerCommand('sudoconfig', { hidden: true, help: 'sudoconfig <key> <exact value> — bypass the preset list (maxLoop, color, lang)', run: (args) => cmdSudoConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
     registerCommand('uji', { hidden: true, help: 'Print the UJIFrame logo', run: () => cmdUji() })
     registerCommand('sudo', { hidden: true, help: 'do superuser', run: () => println('superuser did') })
@@ -815,8 +919,8 @@
       builtin: true,
       run: async (args) => {
         const ms = parseDuration(args[0])
-        if (!Number.isFinite(ms) || ms < 0) { println('Usage: wait <ms> or wait <N>s', 'tf-err'); return }
-        println(`Waiting ${ms}ms...`, 'tf-dim')
+        if (!Number.isFinite(ms) || ms < 0) { println(t('waitUsage'), 'tf-err'); return }
+        println(t('waiting', ms), 'tf-dim')
         await new Promise(resolve => setTimeout(resolve, ms))
       },
     })
@@ -876,7 +980,7 @@
 
       const def = commands.get(cmd) || hiddenCommands.get(cmd)
       if (def) { await def.run(args); return }
-      println(`Unknown command: "${cmd}". Type "help" for a list.`, 'tf-err')
+      println(t('unknownCommand', cmd), 'tf-err')
     }
 
     function finishQueue() {
@@ -913,7 +1017,7 @@
           markQueueStep(currentStepIndex, !sequenceAbort)
         } catch (e) {
           markQueueStep(currentStepIndex, false)
-          println('Error: ' + (e && e.message ? e.message : e), 'tf-err')
+          println(t('errorPrefix') + (e && e.message ? e.message : e), 'tf-err')
         }
       }
       finishQueue()
@@ -936,16 +1040,16 @@
         printCmdEcho(trimmed)
         const rest = trimmed.slice('sudoseq'.length).trim()
         const segments = rest.split('|').map(s => s.trim()).filter(Boolean)
-        if (segments.length === 0) { println('Usage: sudoseq | cmd1 | cmd2 | ...', 'tf-warn'); return }
-        println('⚠ This will run the following commands back-to-back and AUTOMATICALLY answer every "are you sure" / typed confirmation along the way — any destructive or irreversible commands in the chain will execute immediately with no pause to double check:', 'tf-warn')
+        if (segments.length === 0) { println(t('sudoseqUsage'), 'tf-warn'); return }
+        println(t('sudoseqWarning'), 'tf-warn')
         segments.forEach((s, i) => print(`  <span class="tf-dim">${i + 1}.</span> ${escHtml(s)}`))
-        print(`Type <span class="tf-hl">${SUDOSEQ_PHRASE}</span> to confirm and run all ${segments.length} command${segments.length !== 1 ? 's' : ''}.`)
+        print(t('sudoseqConfirm', SUDOSEQ_PHRASE, segments.length))
         pendingConfirm = {
           kind: 'tier',
           tier: 4,
           step: 1,
           resolve: (ok) => {
-            if (!ok) { println('Cancelled.', 'tf-dim'); return }
+            if (!ok) { println(t('cancelled'), 'tf-dim'); return }
             sudoMode = true
             processQueue(segments)
           },
@@ -958,11 +1062,11 @@
         printCmdEcho(trimmed)
         const count = parseInt(loopMatch[1], 10)
         const segments = loopMatch[2].split('|').map(s => s.trim()).filter(Boolean)
-        if (count <= 0) { println('loop count must be a positive integer.', 'tf-err'); return }
-        if (segments.length === 0) { println('Usage: loop <count> <command> [| command2 | ...]', 'tf-warn'); return }
+        if (count <= 0) { println(t('loopCountInvalid'), 'tf-err'); return }
+        if (segments.length === 0) { println(t('loopUsage'), 'tf-warn'); return }
         const maxLoop = resolveMaxLoop()
         if (count > maxLoop) {
-          println(`loop count ${count} exceeds the current max (${maxLoop}, maxLoop="${CONFIG.maxLoop}"). Switch with "config maxLoop freedom" or "sudoconfig maxLoop <n>".`, 'tf-err')
+          println(t('loopExceeds', count, maxLoop, CONFIG.maxLoop), 'tf-err')
           return
         }
         const queue = []
@@ -1050,7 +1154,7 @@
           if (pendingKonamiOpen && e.key === 'Escape') {
             const resolve = pendingKonamiOpen
             pendingKonamiOpen = null
-            println('Cancelled.', 'tf-dim')
+            println(t('cancelled'), 'tf-dim')
             resolve(false)
             input.focus()
           }
