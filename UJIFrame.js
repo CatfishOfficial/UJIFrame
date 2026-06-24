@@ -217,6 +217,8 @@
         helpClearDesc: 'Clear console output',
         helpExitDesc: 'Close admin console',
         itsExit: 'its exit',
+        seriouslyItsExit: 'seriously, its exit',
+        fineIllDoItForYou: 'fine, ill do it for you',
         helpUji: 'Print the UJIFrame logo',
         helpSudo: 'do superuser',
         sudoOutput: 'superuser did',
@@ -277,6 +279,8 @@
         helpClearDesc: 'コンソールの表示をクリア',
         helpExitDesc: '管理コンソールを閉じる',
         itsExit: 'それは exit だよ',
+        seriouslyItsExit: 'マジで、exit だってば',
+        fineIllDoItForYou: 'はいはい、代わりにやってあげるよ',
         helpUji: 'UJIFrameのロゴを表示',
         helpSudo: 'スーパーユーザーを実行',
         sudoOutput: 'スーパーユーザーが実行しました',
@@ -955,8 +959,25 @@
     // Quiet typo-catchers for people who forget the command is "exit" — not
     // real aliases (they don't close the panel), just a nudge in the right
     // direction. No `.help`, so they stay out of both help and sudohelp.
+    // Escalates the more times it happens; closePanel() resets the counter.
+    let notExitCount = 0
     ;['close', 'quit', 'leave', 'bye', 'logout', 'shutdown', 'end'].forEach((name) => {
-      registerCommand(name, { builtin: true, run: () => println(t('itsExit')) })
+      registerCommand(name, {
+        builtin: true,
+        run: async () => {
+          notExitCount++
+          if (notExitCount === 3) {
+            println(t('seriouslyItsExit'))
+          } else if (notExitCount >= 4) {
+            println(t('fineIllDoItForYou'))
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            printCmdEcho('exit')
+            await runSingle('exit')
+          } else {
+            println(t('itsExit'))
+          }
+        },
+      })
     })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('sudoconfig', { hidden: true, help: () => t('helpSudoconfig'), run: (args) => cmdSudoConfig(args) })
@@ -1146,6 +1167,7 @@
     }
     function closePanel() {
       panel.classList.remove('open')
+      notExitCount = 0
       // Deliberately leave pendingConfirm/sequence state alone — closing the
       // panel shouldn't abort an in-progress sequence.
     }
