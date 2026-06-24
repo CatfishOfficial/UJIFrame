@@ -229,6 +229,29 @@
         helpEndpurge: 'Stop the fire animation started by startpurge',
         helpStartglitter: 'Start the lively-mode firework preview, runs until stopped',
         helpEndglitter: 'Stop the fireworks started by startglitter',
+        helpCalc: 'calc <expr> evaluates math (+ - * / % ^ ! sqrt sin cos tan log ln abs pow, pi/e/ans). calc solve <eqn> solves linear/quadratic equations; calc solve <eqn1>, <eqn2> solves a 2-variable linear system.',
+        calcUsage: 'Usage: calc <expression> or calc solve <equation>[, <equation2>], e.g. calc sqrt(16), calc solve x^2-5x+6=0, calc solve x+y=10, x-y=2',
+        calcDivByZero: 'Division by zero',
+        calcUnknownFn: (name) => `Unknown function "${name}"`,
+        calcUnknownIdent: (name) => `Unknown identifier "${name}"`,
+        calcNoAns: 'No previous result — "ans" is not set yet',
+        calcFactorialBad: 'Factorial requires a non-negative integer',
+        calcExpected: (tok) => `Expected "${tok}"`,
+        calcUnexpectedEnd: 'Unexpected end of expression',
+        calcUnexpectedChar: (c) => `Unexpected character "${c}"`,
+        calcInvalidNumber: (s) => `Invalid number "${s}"`,
+        calcUnexpectedToken: (v) => `Unexpected token "${v}"`,
+        calcOr: 'or',
+        calcAlgebraParseError: (s) => `Couldn't parse "${s}" as a term — solve expects plain polynomial terms like 3x^2, -5x, 7`,
+        calcAlgebraNoEquals: 'Equation must contain "="',
+        calcAlgebraNoVariable: 'No variable found to solve for',
+        calcAlgebraTooManyVars: 'solve only supports one variable per equation (use a comma-separated pair for a 2-variable system)',
+        calcAlgebraDegreeUnsupported: 'Only linear and quadratic (degree ≤ 2) terms are supported',
+        calcAlgebraSystemVars: 'A 2-equation system must use exactly two variables total',
+        calcAlgebraNoUniqueSolution: 'This system has no unique solution (equations are parallel or identical)',
+        calcAlgebraTooManyEquations: 'solve supports at most two comma-separated equations',
+        calcAlgebraIdentity: 'True for all values (identity)',
+        calcAlgebraNoSolution: 'No solution',
       },
       ja: {
         escToClose: 'Escまたは外側をクリックして閉じる',
@@ -291,6 +314,29 @@
         helpEndpurge: 'startpurgeで開始した炎のアニメーションを停止',
         helpStartglitter: 'livelyモードの花火プレビューを開始(停止するまで継続)',
         helpEndglitter: 'startglitterで開始した花火を停止',
+        helpCalc: 'calc <式> で計算(+ - * / % ^ ! sqrt sin cos tan log ln abs pow、pi/e/ans)。calc solve <方程式> で一次・二次方程式を解く。calc solve <方程式1>, <方程式2> で2変数連立一次方程式を解く。',
+        calcUsage: '使い方: calc <式> または calc solve <方程式>[, <方程式2>]、例: calc sqrt(16)、calc solve x^2-5x+6=0、calc solve x+y=10, x-y=2',
+        calcDivByZero: '0で除算しています',
+        calcUnknownFn: (name) => `不明な関数です: "${name}"`,
+        calcUnknownIdent: (name) => `不明な識別子です: "${name}"`,
+        calcNoAns: '直前の結果がありません — "ans" はまだ設定されていません',
+        calcFactorialBad: '階乗には0以上の整数が必要です',
+        calcExpected: (tok) => `"${tok}" が必要です`,
+        calcUnexpectedEnd: '式が予期せず終了しました',
+        calcUnexpectedChar: (c) => `予期しない文字です: "${c}"`,
+        calcInvalidNumber: (s) => `不正な数値です: "${s}"`,
+        calcUnexpectedToken: (v) => `予期しないトークンです: "${v}"`,
+        calcOr: 'または',
+        calcAlgebraParseError: (s) => `"${s}" を項として解析できませんでした — solveは 3x^2, -5x, 7 のような単純な多項式の項のみ対応しています`,
+        calcAlgebraNoEquals: '方程式には "=" が必要です',
+        calcAlgebraNoVariable: '解くべき変数が見つかりません',
+        calcAlgebraTooManyVars: 'solveは1つの方程式につき変数1つのみ対応しています(2変数の場合はカンマで区切った連立方程式を使ってください)',
+        calcAlgebraDegreeUnsupported: '一次・二次(次数2以下)の項のみ対応しています',
+        calcAlgebraSystemVars: '2元連立方程式には合計でちょうど2つの変数が必要です',
+        calcAlgebraNoUniqueSolution: 'この連立方程式には一意の解がありません(平行または同一の方程式です)',
+        calcAlgebraTooManyEquations: 'solveはカンマ区切りで最大2つの方程式までです',
+        calcAlgebraIdentity: 'すべての値で成り立ちます(恒等式)',
+        calcAlgebraNoSolution: '解はありません',
       },
     }
     function t(key, ...args) {
@@ -948,6 +994,324 @@
       return m[2] && m[2].toLowerCase() === 's' ? n * 1000 : n
     }
 
+    // ── calculator ───────────────────────────────────────────────────────
+    // A hand-rolled tokenizer + recursive-descent parser/evaluator — no
+    // eval()/Function() involved, so there's no expression-injection risk.
+    class CalcError extends Error {
+      constructor(key, ...args) { super(key); this.key = key; this.args = args }
+    }
+    const CALC_FUNCS = {
+      sqrt: Math.sqrt, sin: Math.sin, cos: Math.cos, tan: Math.tan,
+      asin: Math.asin, acos: Math.acos, atan: Math.atan,
+      abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: Math.round,
+      exp: Math.exp, ln: Math.log, log: Math.log10,
+      max: Math.max, min: Math.min, pow: Math.pow,
+    }
+    const CALC_CONSTS = { pi: Math.PI, e: Math.E }
+    let lastCalcResult = null
+
+    function tokenizeCalc(str) {
+      const tokens = []
+      let i = 0
+      while (i < str.length) {
+        const c = str[i]
+        if (/\s/.test(c)) { i++; continue }
+        if (/[0-9.]/.test(c)) {
+          let j = i
+          while (j < str.length && /[0-9.]/.test(str[j])) j++
+          if (str[j] === 'e' || str[j] === 'E') {
+            j++
+            if (str[j] === '+' || str[j] === '-') j++
+            while (j < str.length && /[0-9]/.test(str[j])) j++
+          }
+          const numStr = str.slice(i, j)
+          const num = parseFloat(numStr)
+          if (!Number.isFinite(num)) throw new CalcError('calcInvalidNumber', numStr)
+          tokens.push({ type: 'num', value: num })
+          i = j
+          continue
+        }
+        if (/[A-Za-z_]/.test(c)) {
+          let j = i
+          while (j < str.length && /[A-Za-z0-9_]/.test(str[j])) j++
+          tokens.push({ type: 'ident', value: str.slice(i, j).toLowerCase() })
+          i = j
+          continue
+        }
+        if ('()+-*/%^!,'.includes(c)) {
+          tokens.push({ type: 'op', value: c })
+          i++
+          continue
+        }
+        throw new CalcError('calcUnexpectedChar', c)
+      }
+      return tokens
+    }
+
+    function calcFactorial(n) {
+      if (n < 0 || Math.floor(n) !== n) throw new CalcError('calcFactorialBad')
+      let result = 1
+      for (let i = 2; i <= n; i++) result *= i
+      return result
+    }
+
+    // Precedence (loosest to tightest): + - | * / % | unary +/- | ^ (right-assoc) | postfix ! | primary
+    function evalMathExpr(str) {
+      const tokens = tokenizeCalc(str)
+      let pos = 0
+      const peek = () => tokens[pos]
+      const next = () => tokens[pos++]
+      const isOp = (t, v) => !!t && t.type === 'op' && t.value === v
+      function expectOp(op) {
+        const t = next()
+        if (!isOp(t, op)) throw new CalcError('calcExpected', op)
+      }
+
+      function parseExpression() { return parseAddSub() }
+
+      function parseAddSub() {
+        let left = parseMulDiv()
+        while (isOp(peek(), '+') || isOp(peek(), '-')) {
+          const op = next().value
+          const right = parseMulDiv()
+          left = op === '+' ? left + right : left - right
+        }
+        return left
+      }
+
+      function parseMulDiv() {
+        let left = parseUnary()
+        while (isOp(peek(), '*') || isOp(peek(), '/') || isOp(peek(), '%')) {
+          const op = next().value
+          const right = parseUnary()
+          if (op === '*') left *= right
+          else if (op === '/') { if (right === 0) throw new CalcError('calcDivByZero'); left /= right }
+          else left %= right
+        }
+        return left
+      }
+
+      function parseUnary() {
+        if (isOp(peek(), '-') || isOp(peek(), '+')) {
+          const op = next().value
+          const val = parseUnary()
+          return op === '-' ? -val : val
+        }
+        return parsePow()
+      }
+
+      function parsePow() {
+        const base = parsePostfix()
+        if (isOp(peek(), '^')) {
+          next()
+          const exp = parseUnary() // right-assoc + lets "2^-2" / "2^3^2" work as expected
+          return Math.pow(base, exp)
+        }
+        return base
+      }
+
+      function parsePostfix() {
+        let val = parsePrimary()
+        while (isOp(peek(), '!')) { next(); val = calcFactorial(val) }
+        return val
+      }
+
+      function parsePrimary() {
+        const t = peek()
+        if (!t) throw new CalcError('calcUnexpectedEnd')
+        if (t.type === 'num') { next(); return t.value }
+        if (isOp(t, '(')) {
+          next()
+          const val = parseExpression()
+          expectOp(')')
+          return val
+        }
+        if (t.type === 'ident') {
+          next()
+          const name = t.value
+          if (isOp(peek(), '(')) {
+            next()
+            const args = []
+            if (!isOp(peek(), ')')) {
+              args.push(parseExpression())
+              while (isOp(peek(), ',')) { next(); args.push(parseExpression()) }
+            }
+            expectOp(')')
+            const fn = CALC_FUNCS[name]
+            if (!fn) throw new CalcError('calcUnknownFn', name)
+            return fn(...args)
+          }
+          if (name === 'ans') {
+            if (lastCalcResult === null) throw new CalcError('calcNoAns')
+            return lastCalcResult
+          }
+          if (name in CALC_CONSTS) return CALC_CONSTS[name]
+          throw new CalcError('calcUnknownIdent', name)
+        }
+        throw new CalcError('calcUnexpectedToken', t.value)
+      }
+
+      const result = parseExpression()
+      if (pos < tokens.length) throw new CalcError('calcUnexpectedToken', tokens[pos].value)
+      return result
+    }
+
+    function formatCalcResult(n) {
+      if (!Number.isFinite(n)) return String(n)
+      return String(Number(n.toPrecision(12)))
+    }
+    function formatComplex({ re, im }) {
+      return `${formatCalcResult(re)} ${im < 0 ? '-' : '+'} ${formatCalcResult(Math.abs(im))}i`
+    }
+
+    // ── algebra solver (calc solve) ─────────────────────────────────────
+    // A separate, deliberately restricted grammar for plain polynomial
+    // terms (e.g. "3x^2", "-5x", "7") — not the general expression
+    // evaluator, since solving needs symbolic coefficients, not a number.
+    function splitOnce(str, sep) {
+      const idx = str.indexOf(sep)
+      return idx === -1 ? [str, undefined] : [str.slice(0, idx), str.slice(idx + sep.length)]
+    }
+
+    function parsePolyTerms(side) {
+      const terms = []
+      let s = side.trim()
+      while (s.length > 0) {
+        let sign = 1
+        const signMatch = s.match(/^([+-])\s*/)
+        if (signMatch) {
+          sign = signMatch[1] === '-' ? -1 : 1
+          s = s.slice(signMatch[0].length)
+        }
+        const termMatch = s.match(/^(\d+(?:\.\d+)?)?\s*\*?\s*([A-Za-z])?\s*(?:\^\s*(\d+))?\s*/)
+        if (!termMatch || (termMatch[1] === undefined && termMatch[2] === undefined) || termMatch[0].length === 0) {
+          throw new CalcError('calcAlgebraParseError', s)
+        }
+        const varName = termMatch[2] ? termMatch[2].toLowerCase() : null
+        const exp = termMatch[3] !== undefined ? parseInt(termMatch[3], 10) : (varName ? 1 : 0)
+        const coeff = termMatch[1] !== undefined ? parseFloat(termMatch[1]) : 1
+        terms.push({ sign, coeff, varName, exp })
+        s = s.slice(termMatch[0].length)
+        if (s.length > 0 && !/^[+-]/.test(s)) throw new CalcError('calcAlgebraParseError', s)
+      }
+      return terms
+    }
+
+    // Combines both sides (RHS negated) into a*v^2 + b*v + c = 0 form.
+    function equationToPoly(eqStr) {
+      const [lhsStr, rhsStr] = splitOnce(eqStr, '=')
+      if (rhsStr === undefined) throw new CalcError('calcAlgebraNoEquals')
+      const lhsTerms = parsePolyTerms(lhsStr)
+      const rhsTerms = parsePolyTerms(rhsStr).map((term) => ({ ...term, sign: term.sign * -1 }))
+      return lhsTerms.concat(rhsTerms)
+    }
+
+    function solveSingleEquation(eqStr) {
+      const allTerms = equationToPoly(eqStr)
+      const varNames = [...new Set(allTerms.filter((term) => term.varName).map((term) => term.varName))]
+      if (varNames.length === 0) throw new CalcError('calcAlgebraNoVariable')
+      if (varNames.length > 1) throw new CalcError('calcAlgebraTooManyVars')
+      const v = varNames[0]
+      let a = 0, b = 0, c = 0
+      for (const term of allTerms) {
+        const val = term.sign * term.coeff
+        if (!term.varName) c += val
+        else if (term.exp === 1) b += val
+        else if (term.exp === 2) a += val
+        else throw new CalcError('calcAlgebraDegreeUnsupported')
+      }
+      if (a === 0) {
+        if (b === 0) return { type: c === 0 ? 'identity' : 'none' }
+        return { type: 'linear', varName: v, value: -c / b }
+      }
+      const disc = b * b - 4 * a * c
+      if (disc > 0) {
+        const sq = Math.sqrt(disc)
+        return { type: 'real', varName: v, roots: [(-b + sq) / (2 * a), (-b - sq) / (2 * a)] }
+      }
+      if (disc === 0) return { type: 'real', varName: v, roots: [-b / (2 * a)] }
+      const sq = Math.sqrt(-disc)
+      const re = -b / (2 * a), im = sq / (2 * a)
+      return { type: 'complex', varName: v, roots: [{ re, im }, { re, im: -im }] }
+    }
+
+    function equationToLinearCoeffs(eqStr) {
+      const allTerms = equationToPoly(eqStr)
+      const coeffs = {}
+      let constant = 0
+      for (const term of allTerms) {
+        if (term.exp > 1) throw new CalcError('calcAlgebraDegreeUnsupported')
+        const val = term.sign * term.coeff
+        if (!term.varName) constant += val
+        else coeffs[term.varName] = (coeffs[term.varName] || 0) + val
+      }
+      return { coeffs, constant }
+    }
+
+    function solveSystem(eq1Str, eq2Str) {
+      const e1 = equationToLinearCoeffs(eq1Str)
+      const e2 = equationToLinearCoeffs(eq2Str)
+      const varNames = [...new Set([...Object.keys(e1.coeffs), ...Object.keys(e2.coeffs)])]
+      if (varNames.length !== 2) throw new CalcError('calcAlgebraSystemVars')
+      const [v1, v2] = varNames
+      const a1 = e1.coeffs[v1] || 0, b1 = e1.coeffs[v2] || 0, k1 = -e1.constant
+      const a2 = e2.coeffs[v1] || 0, b2 = e2.coeffs[v2] || 0, k2 = -e2.constant
+      const det = a1 * b2 - a2 * b1
+      if (det === 0) throw new CalcError('calcAlgebraNoUniqueSolution')
+      const val1 = (k1 * b2 - k2 * b1) / det
+      const val2 = (a1 * k2 - a2 * k1) / det
+      return { type: 'system', vars: [[v1, val1], [v2, val2]] }
+    }
+
+    function printSolveResult(result) {
+      if (result.type === 'identity') { println(t('calcAlgebraIdentity'), 'tf-ok'); return }
+      if (result.type === 'none') { println(t('calcAlgebraNoSolution'), 'tf-ok'); return }
+      if (result.type === 'linear') { println(`${result.varName} = ${formatCalcResult(result.value)}`, 'tf-ok'); return }
+      if (result.type === 'real') {
+        const text = result.roots.length === 1
+          ? formatCalcResult(result.roots[0])
+          : `${formatCalcResult(result.roots[0])} ${t('calcOr')} ${formatCalcResult(result.roots[1])}`
+        println(`${result.varName} = ${text}`, 'tf-ok')
+        return
+      }
+      if (result.type === 'complex') {
+        const [r1, r2] = result.roots
+        println(`${result.varName} = ${formatComplex(r1)} ${t('calcOr')} ${formatComplex(r2)}`, 'tf-ok')
+        return
+      }
+      if (result.type === 'system') {
+        println(result.vars.map(([v, val]) => `${v} = ${formatCalcResult(val)}`).join(', '), 'tf-ok')
+      }
+    }
+
+    function cmdCalcSolve(rest) {
+      const equations = rest.split(',').map((s) => s.trim()).filter(Boolean)
+      if (equations.length === 1) {
+        printSolveResult(solveSingleEquation(equations[0]))
+      } else if (equations.length === 2) {
+        printSolveResult(solveSystem(equations[0], equations[1]))
+      } else {
+        throw new CalcError('calcAlgebraTooManyEquations')
+      }
+    }
+
+    function cmdCalc(args) {
+      const expr = args.join(' ')
+      if (!expr) { println(t('calcUsage'), 'tf-warn'); return }
+      try {
+        if (/^solve\s+/i.test(expr)) {
+          cmdCalcSolve(expr.replace(/^solve\s+/i, ''))
+          return
+        }
+        const result = evalMathExpr(expr)
+        lastCalcResult = result
+        println(`= ${formatCalcResult(result)}`, 'tf-ok')
+      } catch (e) {
+        const msg = e instanceof CalcError ? t(e.key, ...e.args) : e.message
+        println(t('errorPrefix') + msg, 'tf-err')
+      }
+    }
+
     // ── built-in commands ───────────────────────────────────────────────
     // Routed through the same registry host apps use via registerCommand.
     // config/cowsay/matrix are left without a `.help` entry because printHelp
@@ -982,6 +1346,7 @@
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
     registerCommand('sudoconfig', { hidden: true, help: () => t('helpSudoconfig'), run: (args) => cmdSudoConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
+    registerCommand('calc', { help: () => ['calc <expr|solve ...>', t('helpCalc')], run: (args) => cmdCalc(args) })
     registerCommand('uji', { hidden: true, help: () => t('helpUji'), run: () => cmdUji() })
     registerCommand('sudo', { hidden: true, help: () => t('helpSudo'), run: () => println(t('sudoOutput')) })
     registerCommand('wait', {
