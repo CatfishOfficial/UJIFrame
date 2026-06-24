@@ -209,6 +209,23 @@
         waitUsage: 'Usage: wait <ms> or wait <N>s',
         waiting: (ms) => `Waiting ${ms}ms...`,
         errorPrefix: 'Error: ',
+        processingLabel: 'PROCESSING...',
+        runningSequenceLabel: 'RUNNING SEQUENCE...',
+        purgingLabel: 'PURGING...',
+        pressAnyKey: 'press any key',
+        sudoseqAutoConfirmLabel: '$ (sudoseq auto-confirm)',
+        helpClearDesc: 'Clear console output',
+        helpExitDesc: 'Close admin console',
+        helpUji: 'Print the UJIFrame logo',
+        helpSudo: 'do superuser',
+        sudoOutput: 'superuser did',
+        helpSudoconfig: 'sudoconfig <key> <exact value> — bypass the preset list (maxLoop, color, lang)',
+        helpStartprocess: 'Start the matrix loading animation without running anything',
+        helpEndprocess: 'Stop the matrix loading animation started by startprocess',
+        helpStartpurge: 'Start the fire animation without running anything',
+        helpEndpurge: 'Stop the fire animation started by startpurge',
+        helpStartglitter: 'Start the lively-mode firework preview, runs until stopped',
+        helpEndglitter: 'Stop the fireworks started by startglitter',
       },
       ja: {
         escToClose: 'Escまたは外側をクリックして閉じる',
@@ -251,6 +268,23 @@
         waitUsage: '使い方: wait <ミリ秒> または wait <N>s',
         waiting: (ms) => `${ms}ms 待機中...`,
         errorPrefix: 'エラー: ',
+        processingLabel: '処理中...',
+        runningSequenceLabel: '実行中...',
+        purgingLabel: 'パージ中...',
+        pressAnyKey: '何かキーを押してください',
+        sudoseqAutoConfirmLabel: '$ (sudoseq自動確認)',
+        helpClearDesc: 'コンソールの表示をクリア',
+        helpExitDesc: '管理コンソールを閉じる',
+        helpUji: 'UJIFrameのロゴを表示',
+        helpSudo: 'スーパーユーザーを実行',
+        sudoOutput: 'スーパーユーザーが実行しました',
+        helpSudoconfig: 'sudoconfig <キー> <正確な値> — プリセット一覧をバイパス(maxLoop, color, lang)',
+        helpStartprocess: '何も実行せずにマトリックスのローディングアニメーションを開始',
+        helpEndprocess: 'startprocessで開始したマトリックスアニメーションを停止',
+        helpStartpurge: '何も実行せずに炎のアニメーションを開始',
+        helpEndpurge: 'startpurgeで開始した炎のアニメーションを停止',
+        helpStartglitter: 'livelyモードの花火プレビューを開始(停止するまで継続)',
+        helpEndglitter: 'startglitterで開始した花火を停止',
       },
     }
     function t(key, ...args) {
@@ -464,7 +498,7 @@
 
     let _mCanvas = null, _mRaf = null, _mDepth = 0
     function startLoading(label, loadOpts) {
-      label = label || 'PROCESSING...'
+      label = label || t('processingLabel')
       _mDepth++
       if (GLITTER === 'focus') { showSimpleOverlay(label, true); return }
       if (GLITTER === 'static') { showSimpleOverlay(label, false); return }
@@ -512,8 +546,8 @@
 
     let _fCanvas = null, _fRaf = null, _fFalling = false, _fResolve = null
     function startFire() {
-      if (GLITTER === 'focus') { showSimpleOverlay('PURGING...', true); return }
-      if (GLITTER === 'static') { showSimpleOverlay('PURGING...', false); return }
+      if (GLITTER === 'focus') { showSimpleOverlay(t('purgingLabel'), true); return }
+      if (GLITTER === 'static') { showSimpleOverlay(t('purgingLabel'), false); return }
       if (_fCanvas) return
       _fFalling = false
       const c = createCanvas(10)
@@ -691,7 +725,7 @@
       if (promptHtml) print(promptHtml)
       return new Promise(resolve => {
         if (sudoMode) {
-          printCmdEcho('y', '$ (sudoseq auto-confirm)')
+          printCmdEcho('y', t('sudoseqAutoConfirmLabel'))
           resolve(true)
           return
         }
@@ -706,13 +740,13 @@
 
     function autoResolveTier(tier, resolve) {
       if (tier === 5) {
-        printCmdEcho(TIER_PHRASES[2], '$ (sudoseq auto-confirm)')
-        printCmdEcho(TIER_PHRASES[3], '$ (sudoseq auto-confirm)')
+        printCmdEcho(TIER_PHRASES[2], t('sudoseqAutoConfirmLabel'))
+        printCmdEcho(TIER_PHRASES[3], t('sudoseqAutoConfirmLabel'))
         resolve(true)
         return
       }
       const phrase = tier === 1 ? 'yes' : TIER_PHRASES[tier]
-      printCmdEcho(phrase, '$ (sudoseq auto-confirm)')
+      printCmdEcho(phrase, t('sudoseqAutoConfirmLabel'))
       resolve(true)
     }
 
@@ -802,6 +836,12 @@
       return Array.isArray(help[0]) ? [help[0]] : help
     }
 
+    // help may be a function (our own built-ins use this so their text can
+    // react to a sudoconfig lang switch) instead of a static string/array.
+    function resolveHelp(def) {
+      return typeof def.help === 'function' ? def.help() : def.help
+    }
+
     function printWelcome() {
       print(`<span class="tf-gold tf-bold">${escHtml(opts.appName)}</span>  <span class="tf-dim">${t('escToClose')}</span>`)
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
@@ -811,7 +851,7 @@
       for (const [name, def] of commands) {
         if (shown >= 5) break
         if (!def.help || def.builtin || name !== def.name) continue
-        printHelpRow(name, firstHelpRow(def.help))
+        printHelpRow(name, firstHelpRow(resolveHelp(def)))
         shown++
       }
       print(`  <span class="tf-hl">${'help'.padEnd(34)}</span><span class="tf-dim">${t('helpShowAll')}</span>`)
@@ -827,7 +867,7 @@
       print(`  <span class="tf-hl">${'wait <ms|Ns>'.padEnd(34)}</span><span class="tf-dim">${t('helpWait')}</span>`)
       for (const [name, def] of commands) {
         if (!def.help || name !== def.name) continue
-        printHelpRow(name, def.help)
+        printHelpRow(name, resolveHelp(def))
       }
       print(`  <span class="tf-hl">${'config [key] [value]'.padEnd(34)}</span><span class="tf-dim">${t('helpConfig')}</span>`)
       print(`  <span class="tf-hl">${'matrix'.padEnd(34)}</span><span class="tf-dim">${t('helpMatrix')}</span>`)
@@ -840,7 +880,7 @@
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
       for (const [name, def] of hiddenCommands) {
         if (name !== def.name) continue
-        printHelpRow(name, def.help || '')
+        printHelpRow(name, resolveHelp(def) || '')
       }
       print(`<span class="tf-dim">──────────────────────────────────────────────────────</span>`)
     }
@@ -908,13 +948,13 @@
     // already documents them via dedicated static lines.
     registerCommand('help', { builtin: true, aliases: ['?'], run: () => printHelp() })
     registerCommand('sudohelp', { builtin: true, run: () => printSudoHelp() })
-    registerCommand('clear', { builtin: true, aliases: ['cls'], help: ['clear / cls', 'Clear console output'], run: () => clearOutput() })
-    registerCommand('exit', { builtin: true, aliases: ['q'], help: ['exit / q', 'Close admin console'], run: () => closePanel() })
+    registerCommand('clear', { builtin: true, aliases: ['cls'], help: () => ['clear / cls', t('helpClearDesc')], run: () => clearOutput() })
+    registerCommand('exit', { builtin: true, aliases: ['q'], help: () => ['exit / q', t('helpExitDesc')], run: () => closePanel() })
     registerCommand('config', { builtin: true, run: (args) => cmdConfig(args) })
-    registerCommand('sudoconfig', { hidden: true, help: 'sudoconfig <key> <exact value> — bypass the preset list (maxLoop, color, lang)', run: (args) => cmdSudoConfig(args) })
+    registerCommand('sudoconfig', { hidden: true, help: () => t('helpSudoconfig'), run: (args) => cmdSudoConfig(args) })
     registerCommand('cowsay', { builtin: true, run: (args) => cmdCowsay(args) })
-    registerCommand('uji', { hidden: true, help: 'Print the UJIFrame logo', run: () => cmdUji() })
-    registerCommand('sudo', { hidden: true, help: 'do superuser', run: () => println('superuser did') })
+    registerCommand('uji', { hidden: true, help: () => t('helpUji'), run: () => cmdUji() })
+    registerCommand('sudo', { hidden: true, help: () => t('helpSudo'), run: () => println(t('sudoOutput')) })
     registerCommand('wait', {
       builtin: true,
       run: async (args) => {
@@ -927,7 +967,7 @@
     registerCommand('matrix', {
       builtin: true,
       run: () => {
-        startMatrixEgg('press any key')
+        startMatrixEgg(t('pressAnyKey'))
         input.blur()
         setTimeout(() => {
           const stop = (e) => { e.preventDefault(); stopMatrixEgg(); document.removeEventListener('keydown', stop); input.focus() }
@@ -935,12 +975,12 @@
         }, 50)
       },
     })
-    registerCommand('startprocess', { hidden: true, help: 'Start the matrix loading animation without running anything', run: () => startLoading() })
-    registerCommand('endprocess', { hidden: true, help: 'Stop the matrix loading animation started by startprocess', run: () => { stopLoading(); input.focus() } })
-    registerCommand('startpurge', { hidden: true, help: 'Start the fire animation without running anything', run: () => startFire() })
-    registerCommand('endpurge', { hidden: true, help: 'Stop the fire animation started by startpurge', run: async () => { await stopFire(); input.focus() } })
-    registerCommand('startglitter', { hidden: true, help: 'Start the lively-mode firework preview, runs until stopped', run: () => startGlitterPreview() })
-    registerCommand('endglitter', { hidden: true, help: 'Stop the fireworks started by startglitter', run: () => stopGlitterPreview() })
+    registerCommand('startprocess', { hidden: true, help: () => t('helpStartprocess'), run: () => startLoading() })
+    registerCommand('endprocess', { hidden: true, help: () => t('helpEndprocess'), run: () => { stopLoading(); input.focus() } })
+    registerCommand('startpurge', { hidden: true, help: () => t('helpStartpurge'), run: () => startFire() })
+    registerCommand('endpurge', { hidden: true, help: () => t('helpEndpurge'), run: async () => { await stopFire(); input.focus() } })
+    registerCommand('startglitter', { hidden: true, help: () => t('helpStartglitter'), run: () => startGlitterPreview() })
+    registerCommand('endglitter', { hidden: true, help: () => t('helpEndglitter'), run: () => stopGlitterPreview() })
 
     // ── sequencing engine ────────────────────────────────────────────────
     const SUDOSEQ_PHRASE = TIER_PHRASES[4]
@@ -1005,7 +1045,7 @@
           speed: GLITTER_SPEED_MULT[CONFIG.glitterSpeed] || 1,
           rainbow: CONFIG.glitterRainbow === 'on' && (queue.length > 3 || sudoMode),
         }
-        startLoading('RUNNING SEQUENCE...', seqMatrixOpts)
+        startLoading(t('runningSequenceLabel'), seqMatrixOpts)
       }
       ensureSequenceWatchdog()
       while (commandQueue.length > 0 && !sequenceAbort) {
