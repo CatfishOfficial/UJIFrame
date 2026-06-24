@@ -1851,14 +1851,15 @@
         const val = input.value
         if (val.includes(' ')) return // only completes the leading command name, not arguments
         const prefix = val.toLowerCase()
-        if (!prefix) return
         // Only the visible registry — tab-completing hidden commands would
         // defeat the point of them being discoverable only via sudohelp.
+        // An empty prefix (Tab on a blank line) lists everything, rather
+        // than silently doing nothing.
         const matches = [...commands.keys()].filter(name => name.startsWith(prefix)).sort()
-        if (matches.length === 1) {
+        if (matches.length === 1 && prefix) {
           input.value = matches[0] + ' '
-        } else if (matches.length > 1) {
-          printCmdEcho(val, '$ (tab)')
+        } else if (matches.length > 0) {
+          if (val) printCmdEcho(val, '$ (tab)')
           print(matches.map(m => `<span class="tf-hl">${escHtml(m)}</span>`).join('  '))
         }
       } else if (e.key === 'ArrowUp') {
