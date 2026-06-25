@@ -64,7 +64,7 @@
   Drop one file into any page and call <code>UJIFrame.create({...})</code>.</p>
   <p>Open the console below, or press <code>&uarr;&uarr;&darr;&darr;&larr;&rarr;&larr;&rarr;ba</code> (Konami code) anywhere on this page.</p>
   <button id="launch">Launch Console</button>
-  <p>Try: <code>help</code>, <code>about</code>, <code>danger</code>, <code>cowsay hi</code>, <code>matrix</code></p>
+  <p>Try: <code>help</code>, <code>about</code>, <code>cowsay hi</code>, <code>matrix</code></p>
 </div>
 
 <script src="UJIFrame.js"></script>
@@ -78,16 +78,6 @@
   term.registerCommand('about', {
     help: 'About this demo',
     run: () => term.println('UJIFrame — MIT licensed, single-file admin console. https://github.com/CatfishOfficial/UJIFrame'),
-  })
-
-  term.registerCommand('danger', {
-    help: 'Example of a tiered confirmation',
-    run: async () => {
-      const ok = await term.confirm(2, 'This is a demo of a tier-2 confirmation.')
-      // confirm() already prints "Cancelled." itself on rejection — only
-      // need to add our own message on success.
-      if (ok) term.println('Confirmed.', 'tf-ok')
-    },
   })
 
   document.getElementById('launch').addEventListener('click', () => term.open())
