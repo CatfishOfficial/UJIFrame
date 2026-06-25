@@ -276,6 +276,13 @@
         exportDone: 'Log downloaded.',
         settingsTease: "awwww that's cute",
         tabTypeSomethingFirst: 'try typing something first',
+        helpPurge: 'Clear saved data — purge config, purge history, purge aliases, or purge all',
+        purgeUsage: (targets) => `Usage: purge <target>, where target is one of: ${targets}`,
+        purgeUnknownTarget: (target, targets) => `"${target}" isn't a purge target. Try one of: ${targets}`,
+        purgeConfirmOne: (target) => `This will permanently delete your saved ${target} and reset it to defaults.`,
+        purgeConfirmAll: 'This will permanently delete ALL saved data for this console — config, history, and aliases — and reset everything to defaults.',
+        purgeDone: (target) => `✓ ${target} purged.`,
+        purgeAllDone: '✓ Everything purged. Fresh start.',
         calcHelpTitle: 'CALC — quick reference',
         calcHelpArithmetic: 'Arithmetic:  +  -  *  /  %  ^ (power)  ! (factorial)',
         calcHelpArithmeticEx: 'e.g. calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
@@ -411,6 +418,13 @@
         exportDone: 'ログをダウンロードしました。',
         settingsTease: 'あらあら、可愛いね〜',
         tabTypeSomethingFirst: 'まず何か入力してみて',
+        helpPurge: '保存データを削除 — purge config、purge history、purge aliases、または purge all',
+        purgeUsage: (targets) => `使い方: purge <対象>。対象は次のいずれか: ${targets}`,
+        purgeUnknownTarget: (target, targets) => `"${target}" はpurgeの対象ではありません。次のいずれかを指定してください: ${targets}`,
+        purgeConfirmOne: (target) => `保存されている ${target} を完全に削除し、初期設定に戻します。`,
+        purgeConfirmAll: 'このコンソールの保存データ(config・history・alias)をすべて完全に削除し、初期状態に戻します。',
+        purgeDone: (target) => `✓ ${target} を削除しました。`,
+        purgeAllDone: '✓ すべて削除しました。まっさらな状態です。',
         calcHelpTitle: 'CALC — クイックリファレンス',
         calcHelpArithmetic: '四則演算:  +  -  *  /  %  ^ (累乗)  ! (階乗)',
         calcHelpArithmeticEx: '例: calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
@@ -445,7 +459,9 @@
       return typeof entry === 'function' ? entry(...args) : entry
     }
 
-    let CONFIG = {
+    // Tracked separately from CONFIG_SCHEMA so `purge config` can restore
+    // exactly these values — including any a host added via registerConfig.
+    const CONFIG_DEFAULTS = {
       glitter: opts.glitter,
       color: opts.color,
       timestamps: 'off',
@@ -456,6 +472,7 @@
       maxLoop: 'safe',
       lang: 'en',
     }
+    let CONFIG = { ...CONFIG_DEFAULTS }
     try {
       Object.assign(CONFIG, JSON.parse(localStorage.getItem(opts.storageKey) || '{}'))
     } catch (e) {}
@@ -497,6 +514,7 @@
     }
     function registerConfig(key, allowed, defaultValue) {
       CONFIG_SCHEMA[key] = allowed
+      CONFIG_DEFAULTS[key] = defaultValue
       if (!(key in CONFIG)) CONFIG[key] = defaultValue
     }
 
@@ -1565,6 +1583,48 @@
       println(t('exportDone'), 'tf-ok')
     }
 
+    // ── purge ────────────────────────────────────────────────────────────
+    function purgeConfig() {
+      try { localStorage.removeItem(opts.storageKey) } catch (e) {}
+      CONFIG = { ...CONFIG_DEFAULTS }
+      GLITTER = CONFIG_SCHEMA.glitter.includes(CONFIG.glitter) ? CONFIG.glitter : 'focus'
+      if (CONFIG_SCHEMA.color.includes(CONFIG.color)) applyTheme(CONFIG.color)
+      else if (!applyCustomTheme(CONFIG.color)) applyTheme('green')
+    }
+    function purgeHistory() {
+      history.length = 0
+      histIdx = -1
+      try { localStorage.removeItem(opts.storageKey + '_history') } catch (e) {}
+    }
+    function purgeAliases() {
+      Object.keys(USER_ALIASES).forEach((k) => delete USER_ALIASES[k])
+      try { localStorage.removeItem(opts.storageKey + '_aliases') } catch (e) {}
+    }
+    const PURGE_TARGETS = { config: purgeConfig, history: purgeHistory, aliases: purgeAliases }
+    const PURGE_TARGET_LIST = Object.keys(PURGE_TARGETS).concat('all').join(', ')
+
+    async function cmdPurge(args) {
+      const target = (args[0] || '').toLowerCase()
+      if (!target) { println(t('purgeUsage', PURGE_TARGET_LIST), 'tf-warn'); return }
+      if (target === 'all') {
+        const ok = await confirm(3, t('purgeConfirmAll'))
+        if (!ok) return // confirm() already prints "Cancelled." on rejection
+        startFire()
+        Object.values(PURGE_TARGETS).forEach((fn) => fn())
+        await stopFire()
+        println(t('purgeAllDone'), 'tf-ok')
+        return
+      }
+      const fn = PURGE_TARGETS[target]
+      if (!fn) { println(t('purgeUnknownTarget', target, PURGE_TARGET_LIST), 'tf-err'); return }
+      const ok = await confirm(2, t('purgeConfirmOne', target))
+      if (!ok) return
+      startFire()
+      fn()
+      await stopFire()
+      println(t('purgeDone', target), 'tf-ok')
+    }
+
     // ── built-in commands ───────────────────────────────────────────────
     // Routed through the same registry host apps use via registerCommand.
     // config/cowsay/matrix are left without a `.help` entry because printHelp
@@ -1607,6 +1667,7 @@
     registerCommand('unalias', { help: () => ['unalias <name>', t('helpUnalias')], run: (args) => cmdUnalias(args) })
     registerCommand('find', { help: () => ['find [term]', t('helpFind')], run: (args) => cmdFind(args) })
     registerCommand('export', { help: () => ['export', t('helpExport')], run: () => cmdExport() })
+    registerCommand('purge', { help: () => ['purge <config|history|aliases|all>', t('helpPurge')], run: (args) => cmdPurge(args) })
     registerCommand('uji', { hidden: true, help: () => t('helpUji'), run: () => cmdUji() })
     registerCommand('sudo', { hidden: true, help: () => t('helpSudo'), run: () => println(t('sudoOutput')) })
     registerCommand('wait', {
