@@ -283,6 +283,16 @@
         purgeConfirmAll: 'This will permanently delete ALL saved data for this console — config, history, and aliases — and reset everything to defaults.',
         purgeDone: (target) => `✓ ${target} purged.`,
         purgeAllDone: '✓ Everything purged. Fresh start.',
+        helpBank: 'Load extra commands from a JS object at window.UJIBanks.<name> or window.<name> (not persisted — reinstall each session). bank install <name>, bank uninstall <name>, bank list',
+        bankUsage: 'Usage: bank install <name> | bank uninstall <name> | bank list',
+        bankNotFound: (name) => `Couldn't find a bank named "${name}" — expose it as window.UJIBanks.${name} or window.${name} first.`,
+        bankAlreadyInstalled: (name) => `"${name}" is already installed. Run bank uninstall ${name} first to reinstall it.`,
+        bankNothingInstalled: (name) => `Nothing in "${name}" could be installed — every entry needs a run() function and a name that isn't already taken.`,
+        bankInstalled: (name, count, list) => `✓ Installed ${count} command${count !== 1 ? 's' : ''} from "${name}": ${list}`,
+        bankSkipped: (list) => `Skipped (invalid, or name already taken): ${list}`,
+        bankNotInstalled: (name) => `"${name}" isn't currently installed.`,
+        bankUninstalled: (name) => `✓ Uninstalled "${name}".`,
+        bankListEmpty: 'No banks installed this session.',
         calcHelpTitle: 'CALC — quick reference',
         calcHelpArithmetic: 'Arithmetic:  +  -  *  /  %  ^ (power)  ! (factorial)',
         calcHelpArithmeticEx: 'e.g. calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
@@ -425,6 +435,16 @@
         purgeConfirmAll: 'このコンソールの保存データ(config・history・alias)をすべて完全に削除し、初期状態に戻します。',
         purgeDone: (target) => `✓ ${target} を削除しました。`,
         purgeAllDone: '✓ すべて削除しました。まっさらな状態です。',
+        helpBank: 'window.UJIBanks.<name> または window.<name> のJSオブジェクトから追加コマンドを読み込む(永続化されません。毎セッション再インストールが必要)。bank install <name>、bank uninstall <name>、bank list',
+        bankUsage: '使い方: bank install <name> | bank uninstall <name> | bank list',
+        bankNotFound: (name) => `"${name}" というbankが見つかりません — window.UJIBanks.${name} または window.${name} として用意してください。`,
+        bankAlreadyInstalled: (name) => `"${name}" は既にインストールされています。再インストールするには先に bank uninstall ${name} を実行してください。`,
+        bankNothingInstalled: (name) => `"${name}" から何もインストールできませんでした — 各エントリにはrun()関数と、まだ使われていない名前が必要です。`,
+        bankInstalled: (name, count, list) => `✓ "${name}" から${count}件のコマンドをインストールしました: ${list}`,
+        bankSkipped: (list) => `スキップ(無効、または名前が既に使用中): ${list}`,
+        bankNotInstalled: (name) => `"${name}" は現在インストールされていません。`,
+        bankUninstalled: (name) => `✓ "${name}" をアンインストールしました。`,
+        bankListEmpty: '今のセッションではbankはインストールされていません。',
         calcHelpTitle: 'CALC — クイックリファレンス',
         calcHelpArithmetic: '四則演算:  +  -  *  /  %  ^ (累乗)  ! (階乗)',
         calcHelpArithmeticEx: '例: calc 2^10 → 1024     calc 5! → 120     calc (2+3)*4 → 20',
@@ -1625,6 +1645,64 @@
       println(t('purgeDone', target), 'tf-ok')
     }
 
+    // ── command banks ───────────────────────────────────────────────────
+    // A bank is a plain JS object of { name: { help, run, ... } } entries —
+    // the same shape registerCommand takes. End users install one by first
+    // exposing it as window.UJIBanks.<name> (or just window.<name>) — e.g.
+    // from a <script> tag, a bookmarklet, or the devtools console — then
+    // running `bank install <name>` from the terminal itself. There's no
+    // host-side API and nothing is persisted: functions can't survive
+    // localStorage, so a bank has to be re-installed each session.
+    function findBankObject(name) {
+      if (window.UJIBanks && typeof window.UJIBanks === 'object' && name in window.UJIBanks) return window.UJIBanks[name]
+      if (name in window) return window[name]
+      return undefined
+    }
+    const INSTALLED_BANKS = {} // name -> array of every command/alias key it added
+
+    function bankInstall(name) {
+      if (!name) { println(t('bankUsage'), 'tf-warn'); return }
+      if (INSTALLED_BANKS[name]) { println(t('bankAlreadyInstalled', name), 'tf-err'); return }
+      const bank = findBankObject(name)
+      if (!bank || typeof bank !== 'object') { println(t('bankNotFound', name), 'tf-err'); return }
+      const added = []
+      const skipped = []
+      for (const [cmdName, def] of Object.entries(bank)) {
+        const canonical = cmdName.toLowerCase()
+        if (!def || typeof def.run !== 'function' || commands.has(canonical) || hiddenCommands.has(canonical)) {
+          skipped.push(cmdName)
+          continue
+        }
+        registerCommand(cmdName, def)
+        added.push(canonical)
+        if (Array.isArray(def.aliases)) def.aliases.forEach((a) => added.push(a.toLowerCase()))
+      }
+      if (added.length === 0) { println(t('bankNothingInstalled', name), 'tf-err'); return }
+      INSTALLED_BANKS[name] = added
+      println(t('bankInstalled', name, added.length, added.join(', ')), 'tf-ok')
+      if (skipped.length > 0) println(t('bankSkipped', skipped.join(', ')), 'tf-warn')
+    }
+    function bankUninstall(name) {
+      if (!name) { println(t('bankUsage'), 'tf-warn'); return }
+      const added = INSTALLED_BANKS[name]
+      if (!added) { println(t('bankNotInstalled', name), 'tf-err'); return }
+      added.forEach((cmdName) => { commands.delete(cmdName); hiddenCommands.delete(cmdName) })
+      delete INSTALLED_BANKS[name]
+      println(t('bankUninstalled', name), 'tf-ok')
+    }
+    function bankList() {
+      const names = Object.keys(INSTALLED_BANKS)
+      if (names.length === 0) { println(t('bankListEmpty'), 'tf-dim'); return }
+      names.forEach((name) => print(`  <span class="tf-hl">${name.padEnd(20)}</span>${escHtml(INSTALLED_BANKS[name].join(', '))}`))
+    }
+    function cmdBank(args) {
+      const [sub, name] = args
+      if (sub === 'install') { bankInstall(name); return }
+      if (sub === 'uninstall') { bankUninstall(name); return }
+      if (sub === 'list') { bankList(); return }
+      println(t('bankUsage'), 'tf-warn')
+    }
+
     // ── built-in commands ───────────────────────────────────────────────
     // Routed through the same registry host apps use via registerCommand.
     // config/cowsay/matrix are left without a `.help` entry because printHelp
@@ -1667,7 +1745,8 @@
     registerCommand('unalias', { help: () => ['unalias <name>', t('helpUnalias')], run: (args) => cmdUnalias(args) })
     registerCommand('find', { help: () => ['find [term]', t('helpFind')], run: (args) => cmdFind(args) })
     registerCommand('export', { help: () => ['export', t('helpExport')], run: () => cmdExport() })
-    registerCommand('purge', { help: () => ['purge <config|history|aliases|all>', t('helpPurge')], run: (args) => cmdPurge(args) })
+    registerCommand('purge', { help: () => ['purge <target>', t('helpPurge')], run: (args) => cmdPurge(args) })
+    registerCommand('bank', { help: () => ['bank <action> [name]', t('helpBank')], run: (args) => cmdBank(args) })
     registerCommand('uji', { hidden: true, help: () => t('helpUji'), run: () => cmdUji() })
     registerCommand('sudo', { hidden: true, help: () => t('helpSudo'), run: () => println(t('sudoOutput')) })
     registerCommand('wait', {
