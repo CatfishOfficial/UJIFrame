@@ -280,9 +280,19 @@
         purgeUsage: (targets) => `Usage: purge <target>, where target is one of: ${targets}`,
         purgeUnknownTarget: (target, targets) => `"${target}" isn't a purge target. Try one of: ${targets}`,
         purgeConfirmOne: (target) => `This will permanently delete your saved ${target} and reset it to defaults.`,
-        purgeConfirmAll: 'This will permanently delete ALL saved data for this console — config, history, and aliases — and reset everything to defaults.',
+        purgeConfirmAll: (targets) => `This will permanently delete ALL saved data for this console (${targets}) and reset everything to defaults.`,
         purgeDone: (target) => `✓ ${target} purged.`,
         purgeAllDone: '✓ Everything purged. Fresh start.',
+        helpCopyResult: 'Run a command, copy its output to the clipboard, and save it locally (if small enough) for pasteresult to bring back later',
+        copyresultUsage: 'Usage: copyresult <command> [args...], e.g. copyresult uji',
+        copyresultNothing: 'That command did not print anything to copy.',
+        copyresultBoth: '✓ Copied to clipboard and saved locally (use pasteresult to bring it back).',
+        copyresultClipboardOnly: '✓ Copied to clipboard. Output is too large to also save locally, so pasteresult will not have it.',
+        copyresultSavedOnly: "Couldn't access the clipboard, but saved the output locally — use pasteresult to bring it back.",
+        copyresultFailed: "Couldn't copy to the clipboard or save the output locally.",
+        helpPasteResult: 'Print back the output last saved by copyresult',
+        pasteresultEmpty: 'Nothing saved yet — run copyresult <command> first.',
+        pasteresultHeader: 'Last saved output:',
         helpBank: 'Load extra commands from a JS object at window.UJIBanks.<name> or window.<name> (not persisted — reinstall each session). bank install <name>, bank uninstall <name>, bank list',
         bankUsage: 'Usage: bank install <name> | bank uninstall <name> | bank list',
         bankNotFound: (name) => `Couldn't find a bank named "${name}" — expose it as window.UJIBanks.${name} or window.${name} first.`,
@@ -432,9 +442,19 @@
         purgeUsage: (targets) => `使い方: purge <対象>。対象は次のいずれか: ${targets}`,
         purgeUnknownTarget: (target, targets) => `"${target}" はpurgeの対象ではありません。次のいずれかを指定してください: ${targets}`,
         purgeConfirmOne: (target) => `保存されている ${target} を完全に削除し、初期設定に戻します。`,
-        purgeConfirmAll: 'このコンソールの保存データ(config・history・alias)をすべて完全に削除し、初期状態に戻します。',
+        purgeConfirmAll: (targets) => `このコンソールの保存データ(${targets})をすべて完全に削除し、初期状態に戻します。`,
         purgeDone: (target) => `✓ ${target} を削除しました。`,
         purgeAllDone: '✓ すべて削除しました。まっさらな状態です。',
+        helpCopyResult: 'コマンドを実行し、その出力をクリップボードにコピー。サイズが小さければpasteresultで使えるようローカルにも保存',
+        copyresultUsage: '使い方: copyresult <コマンド> [引数...]、例: copyresult uji',
+        copyresultNothing: 'そのコマンドは何も出力しませんでした。',
+        copyresultBoth: '✓ クリップボードにコピーし、ローカルにも保存しました(pasteresultで呼び出せます)。',
+        copyresultClipboardOnly: '✓ クリップボードにコピーしました。出力が大きすぎるためローカルには保存されず、pasteresultでは使えません。',
+        copyresultSavedOnly: 'クリップボードにアクセスできませんでしたが、ローカルに保存しました — pasteresultで呼び出せます。',
+        copyresultFailed: 'クリップボードへのコピーもローカル保存もできませんでした。',
+        helpPasteResult: 'copyresultで最後に保存した出力を表示',
+        pasteresultEmpty: 'まだ何も保存されていません — まず copyresult <コマンド> を実行してください。',
+        pasteresultHeader: '最後に保存された出力:',
         helpBank: 'window.UJIBanks.<name> または window.<name> のJSオブジェクトから追加コマンドを読み込む(永続化されません。毎セッション再インストールが必要)。bank install <name>、bank uninstall <name>、bank list',
         bankUsage: '使い方: bank install <name> | bank uninstall <name> | bank list',
         bankNotFound: (name) => `"${name}" というbankが見つかりません — window.UJIBanks.${name} または window.${name} として用意してください。`,
@@ -1603,7 +1623,43 @@
       println(t('exportDone'), 'tf-ok')
     }
 
+    // ── copyresult / pasteresult ─────────────────────────────────────────
+    const PASTERESULT_MAX_LEN = 8000
+    async function cmdCopyResult(args) {
+      const rest = args.join(' ')
+      if (!rest) { println(t('copyresultUsage'), 'tf-warn'); return }
+      printCmdEcho(rest, '$ (copyresult)')
+      const startCount = output.children.length
+      await runSingle(rest)
+      const capturedText = Array.from(output.children).slice(startCount).map((el) => el.textContent).join('\n').trim()
+      if (!capturedText) { println(t('copyresultNothing'), 'tf-warn'); return }
+
+      let copied = false
+      try {
+        await navigator.clipboard.writeText(capturedText)
+        copied = true
+      } catch (e) { copied = false }
+
+      let saved = false
+      if (capturedText.length <= PASTERESULT_MAX_LEN) {
+        try { localStorage.setItem(opts.storageKey + '_pasteresult', capturedText); saved = true } catch (e) { saved = false }
+      }
+
+      if (copied && saved) println(t('copyresultBoth'), 'tf-ok')
+      else if (copied) println(t('copyresultClipboardOnly'), 'tf-ok')
+      else if (saved) println(t('copyresultSavedOnly'), 'tf-warn')
+      else println(t('copyresultFailed'), 'tf-err')
+    }
+    function cmdPasteResult() {
+      let saved
+      try { saved = localStorage.getItem(opts.storageKey + '_pasteresult') } catch (e) { saved = null }
+      if (!saved) { println(t('pasteresultEmpty'), 'tf-warn'); return }
+      println(t('pasteresultHeader'), 'tf-dim')
+      print(`<pre style="margin:0;font-family:inherit;white-space:pre-wrap;">${escHtml(saved)}</pre>`)
+    }
+
     // ── purge ────────────────────────────────────────────────────────────
+    const PURGE_FIRE_DURATION = 900 // ms the fire plays before being told to stop
     function purgeConfig() {
       try { localStorage.removeItem(opts.storageKey) } catch (e) {}
       CONFIG = { ...CONFIG_DEFAULTS }
@@ -1620,18 +1676,28 @@
       Object.keys(USER_ALIASES).forEach((k) => delete USER_ALIASES[k])
       try { localStorage.removeItem(opts.storageKey + '_aliases') } catch (e) {}
     }
-    const PURGE_TARGETS = { config: purgeConfig, history: purgeHistory, aliases: purgeAliases }
-    const PURGE_TARGET_LIST = Object.keys(PURGE_TARGETS).concat('all').join(', ')
+    function purgePasteResult() {
+      try { localStorage.removeItem(opts.storageKey + '_pasteresult') } catch (e) {}
+    }
+    const PURGE_TARGETS = { config: purgeConfig, history: purgeHistory, aliases: purgeAliases, pasteresult: purgePasteResult }
+    const PURGE_TARGET_NAMES = Object.keys(PURGE_TARGETS).join(', ')
+    const PURGE_TARGET_LIST = `${PURGE_TARGET_NAMES}, all`
 
     async function cmdPurge(args) {
       const target = (args[0] || '').toLowerCase()
       if (!target) { println(t('purgeUsage', PURGE_TARGET_LIST), 'tf-warn'); return }
       if (target === 'all') {
-        const ok = await confirm(3, t('purgeConfirmAll'))
+        const ok = await confirm(3, t('purgeConfirmAll', PURGE_TARGET_NAMES))
         if (!ok) return // confirm() already prints "Cancelled." on rejection
         startFire()
-        Object.values(PURGE_TARGETS).forEach((fn) => fn())
+        await new Promise((resolve) => setTimeout(resolve, PURGE_FIRE_DURATION))
+        // stopFire() must run before any purge fn — purgeConfig resets
+        // GLITTER itself, and stopFire() decides how to stop based on the
+        // *current* GLITTER, so calling it after would strand a real fire
+        // canvas (started while lively) thinking there's only a simple
+        // overlay to hide (since GLITTER would already be back to default).
         await stopFire()
+        Object.values(PURGE_TARGETS).forEach((fn) => fn())
         println(t('purgeAllDone'), 'tf-ok')
         return
       }
@@ -1640,8 +1706,9 @@
       const ok = await confirm(2, t('purgeConfirmOne', target))
       if (!ok) return
       startFire()
-      fn()
+      await new Promise((resolve) => setTimeout(resolve, PURGE_FIRE_DURATION))
       await stopFire()
+      fn()
       println(t('purgeDone', target), 'tf-ok')
     }
 
@@ -1745,6 +1812,8 @@
     registerCommand('unalias', { help: () => ['unalias <name>', t('helpUnalias')], run: (args) => cmdUnalias(args) })
     registerCommand('find', { help: () => ['find [term]', t('helpFind')], run: (args) => cmdFind(args) })
     registerCommand('export', { help: () => ['export', t('helpExport')], run: () => cmdExport() })
+    registerCommand('copyresult', { help: () => ['copyresult <command>', t('helpCopyResult')], run: (args) => cmdCopyResult(args) })
+    registerCommand('pasteresult', { help: () => ['pasteresult', t('helpPasteResult')], run: () => cmdPasteResult() })
     registerCommand('purge', { help: () => ['purge <target>', t('helpPurge')], run: (args) => cmdPurge(args) })
     registerCommand('bank', { help: () => ['bank <action> [name]', t('helpBank')], run: (args) => cmdBank(args) })
     registerCommand('uji', { hidden: true, help: () => t('helpUji'), run: () => cmdUji() })
