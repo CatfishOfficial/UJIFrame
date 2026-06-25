@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>UJIFrame</title>
+<title>UJI Core</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body { background:#0c0c0c; color:#ddd; font-family:'Courier New',Courier,monospace; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:24px; }
@@ -59,32 +59,32 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>UJIFrame</h1>
+  <h1>UJI Core</h1>
   <p>A portable, no-build-step in-browser admin terminal.<br>
-  Drop one file into any page and call <code>UJIFrame.create({...})</code>.</p>
+  Drop one file into any page and call <code>UJICore.create({...})</code>.</p>
   <p>Open the console below, or press <code>&uarr;&uarr;&darr;&darr;&larr;&rarr;&larr;&rarr;ba</code> (Konami code) anywhere on this page.</p>
   <button id="launch">Launch Console</button>
   <p>Try: <code>help</code>, <code>about</code>, <code>cowsay hi</code>, <code>matrix</code></p>
 </div>
 
-<script src="UJIFrame.js"></script>
+<script src="UJICore.js"></script>
 <script>
-  const term = UJIFrame.create({
-    appName: 'UJIFRAME DEMO',
+  const term = UJICore.create({
+    appName: 'UJI CORE DEMO',
     titleLabel: 'demo',
-    storageKey: 'ujiframe_demo_config',
+    storageKey: 'ujicore_demo_config',
   })
 
   term.registerCommand('about', {
     help: 'About this demo',
-    run: () => term.println('UJIFrame — MIT licensed, single-file admin console. https://github.com/CatfishOfficial/UJIFrame'),
+    run: () => term.println('UJI Core — MIT licensed, single-file admin console. https://github.com/CatfishOfficial/UJIFrame'),
   })
 
   document.getElementById('launch').addEventListener('click', () => term.open())
 
   // ── Konami combo effect ──────────────────────────────────────────────
   // Purely cosmetic, page-level feedback for each correct step of the
-  // Konami code. UJIFrame.js tracks the same sequence independently and
+  // Konami code. UJICore.js tracks the same sequence independently and
   // owns the actual "open the console" trigger.
   const KONAMI_DEMO = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a']
   const KONAMI_LABELS = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', b: 'B', a: 'A' }

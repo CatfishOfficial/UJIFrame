@@ -1,7 +1,7 @@
 /*!
- * UJIFrame — a portable, no-build-step in-browser admin terminal.
+ * UJI Core — a portable, no-build-step in-browser admin terminal.
  *
- * Drop this one file into any page and call UJIFrame.create({...}) — it
+ * Drop this one file into any page and call UJICore.create({...}) — it
  * injects its own DOM + CSS, gives you a command registry, a 5-tier
  * confirmation system, "|" command sequencing with sudoseq auto-confirm, a
  * localStorage-backed config system, and a set of built-in animations
@@ -16,7 +16,7 @@
  *   5: tier 2, then tier 3 (two-step)
  *
  * Usage:
- *   const term = UJIFrame.create({ appName: 'MY APP CONSOLE', storageKey: 'myapp_cli_config' })
+ *   const term = UJICore.create({ appName: 'MY APP CONSOLE', storageKey: 'myapp_cli_config' })
  *   term.registerCommand('list', { help: 'List things', run: async (args) => { term.println('...') } })
  *   const ok = await term.confirm(2, 'About to do a thing.')
  *   if (!ok) return
@@ -94,9 +94,9 @@
   function create(userOptions) {
     const opts = Object.assign({
       rootId: 'tf-console',
-      appName: 'UJIFRAME CONSOLE',
+      appName: 'UJI CORE CONSOLE',
       titleLabel: 'admin',
-      storageKey: 'ujiframe_config',
+      storageKey: 'ujicore_config',
       trigger: 'konami', // 'konami' | 'none'
       glitter: 'focus',
       color: 'green',
@@ -222,7 +222,7 @@
         itsExit: 'its exit',
         seriouslyItsExit: 'seriously, its exit',
         fineIllDoItForYou: 'fine, ill do it for you',
-        helpUji: 'Print the UJIFrame logo',
+        helpUji: 'Print the UJI Core logo',
         helpSudo: 'do superuser',
         sudoOutput: 'superuser did',
         helpSudoconfig: 'sudoconfig <key> <exact value> — bypass the preset list (maxLoop, color, lang)',
@@ -374,7 +374,7 @@
         itsExit: 'それは exit だよ',
         seriouslyItsExit: 'マジで、exit だってば',
         fineIllDoItForYou: 'はいはい、代わりにやってあげるよ',
-        helpUji: 'UJIFrameのロゴを表示',
+        helpUji: 'UJI Coreのロゴを表示',
         helpSudo: 'スーパーユーザーを実行',
         sudoOutput: 'スーパーユーザーが実行しました',
         helpSudoconfig: 'sudoconfig <キー> <正確な値> — プリセット一覧をバイパス(maxLoop, color, lang)',
@@ -592,7 +592,7 @@
         apply: (v) => { CONFIG.color = `#${v.replace(/^#/, '').toLowerCase()}`; applyCustomTheme(v) },
         error: () => t('sudoconfigColorError'),
       },
-      // The one bit of UI localization in UJIFrame — deliberately not exposed
+      // The one bit of UI localization in UJI Core — deliberately not exposed
       // via `config` (CONFIG_SCHEMA has no `lang` key), only sudoconfig.
       // `values` is a known/finite list, so a missing value can list it
       // (unlike maxLoop/color, which take arbitrary numbers/hex and just
@@ -2078,5 +2078,5 @@
     }
   }
 
-  global.UJIFrame = { create }
+  global.UJICore = { create }
 })(window)
