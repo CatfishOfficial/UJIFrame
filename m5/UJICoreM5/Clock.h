@@ -92,12 +92,7 @@ int currentLocalHour() {
   return tmInfo.tm_hour;
 }
 
-void timeRun(const String& args) {
-  if (!ensureTimeSynced()) {
-    termPrintln("Couldn't sync time -- check WiFi (\"wifi connect\").", COLOR_DANGER);
-    return;
-  }
-  termPrintln(formatCurrentTime(), COLOR_TEXT);
-}
+// timeRun() lives in TimeFeatures.h -- it delegates to ensureTimeSynced() and
+// formatCurrentTime() here, plus handles alarm/timer/stopwatch subcommands.
 
 #endif // UJI_M5_CLOCK_H

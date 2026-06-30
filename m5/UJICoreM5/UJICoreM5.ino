@@ -22,6 +22,7 @@
 #include "Weather.h"
 #include "NightAnimations.h"
 #include "Idle.h"
+#include "TimeFeatures.h"
 #include "Registry.h"
 #include "Parser.h"
 #include "TouchMenu.h"
@@ -89,6 +90,7 @@ void setup() {
   M5.Display.setTextWrap(false, false);
 
   loadConfig();
+  timeInit(); // load persisted alarms from NVS
   applyBrightness();
   wifiAutoConnectIfEnabled();
 
@@ -143,7 +145,9 @@ void loop() {
 
       switch (uiMode) {
         case UI_CLOSED:
-          if (y < SCR_H - BAR_H) openCategoryMenu();
+          if (y < SCR_H - BAR_H) {
+            if (!timeConsumeStopwatchTap()) openCategoryMenu();
+          }
           break;
         case UI_CONFIRM:
           handleConfirmTouch(x, y);
@@ -161,5 +165,6 @@ void loop() {
   }
 
   idleTick();
+  timeTick();
   wifiTick();
 }

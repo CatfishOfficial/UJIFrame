@@ -177,7 +177,57 @@ static void drawExtensionMenu() {
     case EXT_CONFIG:
       drawConfigExtension();
       break;
+    case EXT_TIME_ENTRY:
+      drawTimeEntryExtension();
+      break;
   }
+}
+
+// ── EXT_TIME_ENTRY: phone-style numpad for HH:MM (alarm) or duration (timer) ──
+// armedCommand->name == "alarm" gets an extra row with repeat/once buttons.
+static Button timeEntryButtons[14];
+static uint8_t timeEntryButtonCount = 0;
+
+void drawTimeEntryExtension() {
+  if (!armedCommand) return;
+  bool isAlarm = (String(armedCommand->name) == "alarm");
+
+  int16_t top   = 42;
+  int16_t colW  = SCR_W / 3;
+  int16_t rows  = isAlarm ? 5 : 4;
+  int16_t rowH  = (overlayHeight() - top) / rows;
+
+  const char* labels[] = { "1","2","3","4","5","6","7","8","9","0",":","DEL" };
+  for (int i = 0; i < 12; i++) {
+    int16_t col = i % 3, row = i / 3;
+    timeEntryButtons[i] = {
+      (int16_t)(col * colW), (int16_t)(top + row * rowH),
+      colW, rowH, labels[i], (uint8_t)i
+    };
+    drawButton(timeEntryButtons[i]);
+  }
+  timeEntryButtonCount = 12;
+
+  if (isAlarm) {
+    int16_t y5    = top + 4 * rowH;
+    int16_t halfW = SCR_W / 2;
+    timeEntryButtons[12] = { 0,     y5, halfW,                      rowH, "repeat", 12 };
+    timeEntryButtons[13] = { halfW, y5, (int16_t)(SCR_W - halfW),   rowH, "once",   13 };
+    drawButton(timeEntryButtons[12]);
+    drawButton(timeEntryButtons[13]);
+    timeEntryButtonCount = 14;
+  }
+}
+
+void handleTimeEntryExtensionTouch(int16_t x, int16_t y) {
+  int idx = hitTestButtons(timeEntryButtons, timeEntryButtonCount, x, y);
+  if (idx < 0) return;
+  playClick();
+  if (idx == 11) { barBackspace(); return; }         // DEL
+  if (idx == 12) { barAppendText(" repeat"); return; }
+  if (idx == 13) { barAppendText(" once");   return; }
+  const char* inserts[] = { "1","2","3","4","5","6","7","8","9","0",":" };
+  if (idx < 11) barAppendText(inserts[idx]);
 }
 
 void drawOverlay() {
@@ -255,6 +305,7 @@ void touchMenuHandleTouch(int16_t x, int16_t y) {
         configStep = 0;
         configSelectedKeyIdx = -1;
         listScrollOffset = 0; // fresh extension list, fresh page
+        calcResetKeypadPage(); // no-op for non-calc commands; back to the arithmetic page for calc
         barAppendText(String(armedCommand->name) + " ");
         uiMode = UI_EXTENSION;
         drawOverlay();
@@ -268,6 +319,9 @@ void touchMenuHandleTouch(int16_t x, int16_t y) {
           break; // nothing to tap here besides Back/OK
         case EXT_NUMERIC:
           handleCalcExtensionTouch(x, y);
+          break;
+        case EXT_TIME_ENTRY:
+          handleTimeEntryExtensionTouch(x, y);
           break;
         case EXT_CHOICES: {
           if (handlePagingTouch(x, y)) break;

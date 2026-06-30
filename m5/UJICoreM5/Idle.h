@@ -110,6 +110,9 @@ static const char* const IDLE_JOKES[] = {
   "trust stack overflow. it's fine.",
   "ctrl+z: my favorite life skill.",
   "404: motivation not found.",
+  "new distro, who dis?",
+  "\"co-developed\" with claude",
+  "git? like github?",
 };
 #define IDLE_JOKE_COUNT (sizeof(IDLE_JOKES) / sizeof(IDLE_JOKES[0]))
 

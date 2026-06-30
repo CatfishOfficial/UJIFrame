@@ -115,7 +115,7 @@ void playClick();
 void renderAll(); // full redraw: scrollback + bar + (if open) the overlay
 
 // ── command registry ──────────────────────────────────────────────────
-enum ExtType : uint8_t { EXT_NONE, EXT_NUMERIC, EXT_CHOICES, EXT_CONFIG };
+enum ExtType : uint8_t { EXT_NONE, EXT_NUMERIC, EXT_CHOICES, EXT_CONFIG, EXT_TIME_ENTRY };
 
 struct CommandDef {
   const char* name;
@@ -213,9 +213,10 @@ String renderHistory();
 
 // ── calc ───────────────────────────────────────────────────────────────
 String evalMathExprToString(const String& expr);
-void calcRun(const String& args);
+void calcRun(const String& args); // also handles "calc solve <eqn>[, <eqn2>]"
 void drawCalcExtension(int16_t x, int16_t y, int16_t w, int16_t h);
 void handleCalcExtensionTouch(int16_t x, int16_t y);
+void calcResetKeypadPage(); // back to the arithmetic keypad page; call when (re)arming the calc extension
 
 // ── cowsay ─────────────────────────────────────────────────────────────
 void cowsayRun(const String& args);
@@ -254,11 +255,21 @@ String httpGet(const String& url, String& errorOut);
 // ── clock (NTP time over WiFi; Http.h also uses ensureTimeSynced() for
 // TLS certificate date checks) ────────────────────────────────────────
 bool ensureTimeSynced();
-void timeRun(const String& args);
 void applyTimezone(); // sets the TZ env var from CONFIG.timezone so localtime_r() converts correctly (incl. DST)
 String formatIdleDate(); // short formats for the idle-mode widget, e.g. "Wed Jun 28" / "2:43 PM"
 String formatIdleTime();
 int currentLocalHour(); // 0-23; caller must already know time is synced
+
+// ── time features (alarms, timer, stopwatch — TimeFeatures.h) ────────────
+void timeInit();          // load persisted alarms; call once from setup()
+void timeRun(const String& args);
+void alarmRun(const String& args);
+void timerRun(const String& args);
+void stopwatchRun(const String& args);
+void timeTick();          // call every loop() iteration
+bool timeConsumeStopwatchTap(); // true = stopwatch consumed a scrollback tap (caller skips openCategoryMenu)
+void drawTimeEntryExtension();
+void handleTimeEntryExtensionTouch(int16_t x, int16_t y);
 
 // ── weather (Tools; wttr.in, free, no API key, geolocates by request IP) ──
 void weatherRun(const String& args);
