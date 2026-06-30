@@ -64,8 +64,28 @@ static uint8_t wifiAutoOrder[WIFI_NETWORK_COUNT];
 static uint8_t wifiAutoPos = 0;
 static unsigned long wifiAutoAttemptMs = 0;
 
+// Maps the current WiFi.status() to a short human reason, so a failed
+// connect says *why* instead of just "couldn't reach". WL_NO_SSID_AVAIL is
+// the tell-tale for a 2.4GHz-only chip (ESP32-S3) not seeing a 5GHz-only,
+// hidden, or out-of-range network; WL_CONNECT_FAILED means it found the AP
+// but the password/auth was rejected.
+static const char* wifiFailReason() {
+  switch (WiFi.status()) {
+    case WL_NO_SSID_AVAIL:   return "not found -- 2.4GHz? in range? name exact?";
+    case WL_CONNECT_FAILED:  return "auth failed -- check password";
+    case WL_CONNECTION_LOST: return "connection lost";
+    case WL_IDLE_STATUS:     return "still negotiating -- timed out";
+    default:                 return "timed out";
+  }
+}
+
 // Blocking single-network attempt (manual connect path); true on success.
+// Disconnects first so switching SSIDs mid-failover starts from a clean
+// state -- without this, a still-active auto-reconnect to the previous
+// SSID can stop the next WiFi.begin() from ever associating.
 static bool wifiTryNetwork(const WifiNetwork& net) {
+  WiFi.disconnect();
+  delay(100);
   WiFi.begin(net.ssid, net.password);
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_CONNECT_TIMEOUT_MS) {
@@ -94,7 +114,7 @@ static void wifiConnect() {
       wifiNoteConnected();
       return;
     }
-    termPrintln(String("  couldn't reach ") + net.ssid + ".", COLOR_DIM);
+    termPrintln(String("  ") + net.ssid + ": " + wifiFailReason(), COLOR_DIM);
   }
   termPrintln("Failed to connect to any configured network.", COLOR_DANGER);
 }
@@ -167,6 +187,7 @@ void wifiTick() {
   wifiAutoPos = (uint8_t)((wifiAutoPos + 1) % WIFI_NETWORK_COUNT);
   wifiAutoAttemptMs = millis();
   const WifiNetwork& net = WIFI_NETWORKS[wifiAutoOrder[wifiAutoPos]];
+  WiFi.disconnect(); // clean switch before trying the next SSID (same reason as wifiTryNetwork)
   WiFi.begin(net.ssid, net.password);
 }
 
